@@ -1,5 +1,5 @@
 /* =================================================================
-   DÄMMERHAFEN - REFACTORED CSS v2.0
+   DÄMMERHAFEN - REFACTORED CSS v2.1
    Unified Design System für Miliz, Bibliothek & Aushänge
    ================================================================= */
 
@@ -3136,13 +3136,4 @@ button:hover, .nav-btn:hover {
         flex: 1;
         min-width: 120px;
     }
-}
-
-
-.rp-view-immersive .rp-card--transparent {
-    background: rgba(248, 238, 211, 0.90);
-}
-
-.rp-view-immersive .rp-card--entry.rp-card--transparent {
-    background: rgba(248, 238, 211, 0.90) !important;
 }
