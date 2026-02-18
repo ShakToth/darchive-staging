@@ -55,6 +55,20 @@ function initMilizDB() {
             // Spalte existiert bereits
         }
 
+        // Migration: Wanted-Belohnung + Verbrechens-Kurztext
+        foreach ([
+            "ALTER TABLE miliz_entries ADD COLUMN bounty_gold INTEGER DEFAULT 0",
+            "ALTER TABLE miliz_entries ADD COLUMN bounty_silver INTEGER DEFAULT 0",
+            "ALTER TABLE miliz_entries ADD COLUMN bounty_copper INTEGER DEFAULT 0",
+            "ALTER TABLE miliz_entries ADD COLUMN crime_summary TEXT DEFAULT NULL"
+        ] as $sql) {
+            try {
+                $db->exec($sql);
+            } catch (PDOException $e) {
+                // Spalte existiert bereits
+            }
+        }
+
         // Briefkasten-Tabelle (anonyme Hinweise)
         $db->exec("CREATE TABLE IF NOT EXISTS miliz_briefkasten (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -87,7 +101,7 @@ function initMilizDB() {
 }
 
 // --- EINTRAG ERSTELLEN ---
-function createMilizEntry($category, $title, $content, $author = 'Die Miliz', $filePath = null, $priority = 0) {
+function createMilizEntry($category, $title, $content, $author = 'Die Miliz', $filePath = null, $priority = 0, $wantedData = []) {
     if (!hasPermission('miliz', 'write')) {
         return ['type' => 'error', 'text' => '🚫 Zugriff verweigert.'];
     }
@@ -99,22 +113,44 @@ function createMilizEntry($category, $title, $content, $author = 'Die Miliz', $f
     
     try {
         $timestamp = time();
-        $stmt = $db->prepare("
-            INSERT INTO miliz_entries (category, title, content, author, file_path, created_at, updated_at, priority)
-            VALUES (:category, :title, :content, :author, :file_path, :created_at, :updated_at, :priority)
-        ");
-        
-        $stmt->execute([
-            ':category' => $category,
-            ':title' => $title,
-            ':content' => $content,
-            ':author' => $author,
-            ':file_path' => $filePath,
-            ':created_at' => $timestamp,
-            ':updated_at' => $timestamp,
-            ':priority' => $priority
-        ]);
-        
+
+        if ($category === 'gesucht') {
+            $stmt = $db->prepare("
+                INSERT INTO miliz_entries (category, title, content, author, file_path, created_at, updated_at, priority, status, bounty_gold, bounty_silver, bounty_copper, crime_summary)
+                VALUES (:category, :title, :content, :author, :file_path, :created_at, :updated_at, :priority, :status, :bounty_gold, :bounty_silver, :bounty_copper, :crime_summary)
+            ");
+            $stmt->execute([
+                ':category' => $category,
+                ':title' => $title,
+                ':content' => $content,
+                ':author' => $author,
+                ':file_path' => $filePath,
+                ':created_at' => $timestamp,
+                ':updated_at' => $timestamp,
+                ':priority' => $priority,
+                ':status' => (array_key_exists(($wantedData['status'] ?? 'aktiv'), MILIZ_STATUS_VALUES) ? ($wantedData['status'] ?? 'aktiv') : 'aktiv'),
+                ':bounty_gold' => max(0, intval($wantedData['gold'] ?? 0)),
+                ':bounty_silver' => max(0, intval($wantedData['silver'] ?? 0)),
+                ':bounty_copper' => max(0, intval($wantedData['copper'] ?? 0)),
+                ':crime_summary' => trim((string)($wantedData['crime_summary'] ?? '')) ?: null
+            ]);
+        } else {
+            $stmt = $db->prepare("
+                INSERT INTO miliz_entries (category, title, content, author, file_path, created_at, updated_at, priority)
+                VALUES (:category, :title, :content, :author, :file_path, :created_at, :updated_at, :priority)
+            ");
+            $stmt->execute([
+                ':category' => $category,
+                ':title' => $title,
+                ':content' => $content,
+                ':author' => $author,
+                ':file_path' => $filePath,
+                ':created_at' => $timestamp,
+                ':updated_at' => $timestamp,
+                ':priority' => $priority
+            ]);
+        }
+
         return ['type' => 'success', 'text' => '✅ Eintrag erfolgreich erstellt!'];
     } catch (PDOException $e) {
         return ['type' => 'error', 'text' => '❌ Fehler beim Speichern.'];
@@ -183,6 +219,41 @@ function updateMilizEntryStatus($id, $status) {
         return ['type' => 'success', 'text' => "Status auf '{$label}' gesetzt."];
     } catch (PDOException $e) {
         return ['type' => 'error', 'text' => '❌ Fehler beim Aktualisieren.'];
+    }
+}
+
+
+
+// --- WANTED-BELOHNUNG AKTUALISIEREN ---
+function updateMilizWantedBounty($id, $gold, $silver, $copper) {
+    if (!hasPermission('miliz', 'write')) {
+        return ['type' => 'error', 'text' => '🚫 Zugriff verweigert.'];
+    }
+
+    $db = initMilizDB();
+    if (!$db) return ['type' => 'error', 'text' => '❌ Datenbank-Fehler.'];
+
+    $gold = max(0, intval($gold));
+    $silver = max(0, min(99, intval($silver)));
+    $copper = max(0, min(99, intval($copper)));
+
+    try {
+        $stmt = $db->prepare("UPDATE miliz_entries
+            SET bounty_gold = :gold,
+                bounty_silver = :silver,
+                bounty_copper = :copper,
+                updated_at = :updated_at
+            WHERE id = :id AND category = 'gesucht'");
+        $stmt->execute([
+            ':gold' => $gold,
+            ':silver' => $silver,
+            ':copper' => $copper,
+            ':updated_at' => time(),
+            ':id' => $id
+        ]);
+        return ['type' => 'success', 'text' => 'Belohnung aktualisiert.'];
+    } catch (PDOException $e) {
+        return ['type' => 'error', 'text' => '❌ Fehler beim Aktualisieren der Belohnung.'];
     }
 }
 

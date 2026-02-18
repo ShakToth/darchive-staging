@@ -2554,6 +2554,17 @@ button:hover, .nav-btn:hover {
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
 }
 
+.rp-book-cover__title {
+    font-family: var(--font-elegant);
+    font-size: 0.85rem;
+    text-align: center;
+    max-width: 90%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: 0.5px;
+}
+
 .rp-book-cover__ext {
     font-size: 0.7rem;
     text-transform: uppercase;
@@ -2563,6 +2574,13 @@ button:hover, .nav-btn:hover {
 }
 
 /* Quality-spezifische Cover-Farben */
+
+
+.rp-book-cover--pdf { border-left: 2px solid rgba(180, 40, 40, 0.45); }
+.rp-book-cover--txt, .rp-book-cover--md { border-left: 2px solid rgba(180, 150, 80, 0.45); }
+.rp-book-cover--doc, .rp-book-cover--docx { border-left: 2px solid rgba(80, 120, 180, 0.45); }
+.rp-book-cover--epub { border-left: 2px solid rgba(80, 180, 120, 0.45); }
+
 .quality-common .rp-book-cover { background-color: #4a4a4a; }
 .quality-uncommon .rp-book-cover { background-color: #2a4a2a; }
 .quality-rare .rp-book-cover { background-color: #1a3a5a; }
@@ -2575,6 +2593,14 @@ button:hover, .nav-btn:hover {
 /* =================================================================
    22. CARD ACTION BAR (Bibliothek)
    ================================================================= */
+
+
+.rp-card__read-meta {
+    display: block;
+    font-size: 0.75rem;
+    color: rgba(244, 228, 188, 0.9);
+    margin-top: 2px;
+}
 
 .rp-card__quality-label {
     font-size: 0.7rem;
@@ -2721,6 +2747,27 @@ button:hover, .nav-btn:hover {
     padding: 5px 15px;
     border-radius: 4px;
     border: 1px solid rgba(212, 175, 55, 0.4);
+}
+
+.wanted-poster__belohnung .coin {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 1.05rem;
+}
+
+.wanted-poster__belohnung .coin--gold {
+    color: #d4af37;
+    background: rgba(212, 175, 55, 0.12);
+}
+
+.wanted-poster__belohnung .coin--silver {
+    color: #c0c0c0;
+    background: rgba(192, 192, 192, 0.12);
+}
+
+.wanted-poster__belohnung .coin--copper {
+    color: #b87333;
+    background: rgba(184, 115, 51, 0.12);
 }
 
 /* =================================================================
