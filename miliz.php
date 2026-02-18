@@ -36,6 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_entry']) && is
         if ($category === 'steckbriefe') {
             $wantedData['rank_text'] = trim($_POST['entry_rank'] ?? '');
         }
+
+        $wantedData['format_type'] = $_POST['entry_format_type'] ?? 'markdown';
         
         $filePath = null;
         
@@ -141,7 +143,7 @@ if (isset($_POST['wk_create'], $_POST['csrf_token'])) {
 if (isset($_POST['wk_update'], $_POST['wk_item_id'], $_POST['csrf_token'])) {
     if (verifyCSRFToken($_POST['csrf_token']) && hasPermission('miliz', 'write')) {
         $updateData = [];
-        foreach (['name', 'beschreibung', 'bestand', 'zustand', 'ausgegeben_an'] as $f) {
+        foreach (['name', 'beschreibung', 'bestand', 'zustand', 'ausgegeben_an', 'ausgegeben_menge'] as $f) {
             $key = 'wk_' . $f;
             if (isset($_POST[$key])) {
                 $updateData[$f] = $_POST[$key];
@@ -166,6 +168,26 @@ $statusFilter = isset($_GET['status']) ? $_GET['status'] : null;
 
 if ($view !== 'room' && array_key_exists($view, MILIZ_CATEGORIES)) {
     $entries = getMilizEntries($view, !hasPermission('miliz', 'write'), $statusFilter);
+}
+
+function renderMilizContent($entry) {
+    $content = (string)($entry['crime_summary'] ?? $entry['content'] ?? '');
+    $formatType = strtolower((string)($entry['format_type'] ?? 'markdown'));
+
+    if ($formatType === 'html') {
+        return sanitizeHTML($content);
+    }
+
+    if ($formatType === 'bbcode') {
+        $bb = htmlspecialchars($content, ENT_QUOTES, 'UTF-8');
+        $bb = preg_replace('/\[b\](.*?)\[\/b\]/is', '<strong>$1</strong>', $bb);
+        $bb = preg_replace('/\[i\](.*?)\[\/i\]/is', '<em>$1</em>', $bb);
+        $bb = preg_replace('/\[u\](.*?)\[\/u\]/is', '<u>$1</u>', $bb);
+        $bb = preg_replace('/\[url=(.*?)\](.*?)\[\/url\]/is', '<a href="$1" target="_blank" rel="noopener">$2</a>', $bb);
+        return nl2br($bb);
+    }
+
+    return parseRichText($content);
 }
 
 require_once 'header.php';
@@ -284,7 +306,7 @@ require_once 'header.php';
             <?php endif; ?>
         <?php endif; ?>
 
-        <?php if (hasPermission('miliz', 'write')): ?>
+        <?php if (hasPermission('miliz', 'write') && $view !== 'waffenkammer'): ?>
             <div class="rp-controls" style="margin-bottom: 30px;">
                 <form method="post" enctype="multipart/form-data" style="width: 100%;">
                     <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
@@ -292,6 +314,7 @@ require_once 'header.php';
                     <input type="hidden" name="create_entry" value="1">
 
                     <?php if ($view === 'gesucht'): ?>
+                        <input type="hidden" name="entry_format_type" value="markdown">
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:15px;">
                             <div>
                                 <label class="rp-label">👤 Name des Gesuchten *</label>
@@ -366,7 +389,20 @@ require_once 'header.php';
                         <div style="margin-bottom: 15px;">
                             <label class="rp-label">📝 Inhalt *</label>
                             <textarea name="entry_content" class="rp-textarea" required rows="6" style="width: 100%; box-sizing: border-box;"></textarea>
-                            <small style="color: #666; font-size: 0.85rem;">Formatierung: **fett** *kursiv* - Listen [Link](URL)</small>
+                            <?php if ($view === 'protokolle'): ?>
+                                <div style="display:flex; gap:10px; align-items:center; margin-top:8px; flex-wrap:wrap;">
+                                    <label class="rp-label" style="margin:0;">Format</label>
+                                    <select name="entry_format_type" class="rp-select" style="width:auto; min-width:180px;">
+                                        <option value="markdown">Markdown</option>
+                                        <option value="bbcode">BBCode (leicht)</option>
+                                        <option value="html">HTML (sanitized)</option>
+                                    </select>
+                                </div>
+                                <small style="color:#666; font-size:0.85rem;">BBCode: [b], [i], [u], [url=...]...[/url]</small>
+                            <?php else: ?>
+                                <input type="hidden" name="entry_format_type" value="markdown">
+                                <small style="color: #666; font-size: 0.85rem;">Formatierung: **fett** *kursiv* - Listen [Link](URL)</small>
+                            <?php endif; ?>
                         </div>
 
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
@@ -453,7 +489,7 @@ require_once 'header.php';
                     </thead>
                     <tbody>
                         <?php if (empty($wkItems)): ?>
-                            <tr><td colspan="6" style="text-align:center; color:#888;">Die Waffenkammer ist leer.</td></tr>
+                            <tr><td colspan="<?= hasPermission('miliz', 'write') ? '6' : '5' ?>" style="text-align:center; color:#888;">Die Waffenkammer ist leer.</td></tr>
                         <?php else: ?>
                             <?php foreach ($wkItems as $item): ?>
                                 <tr>
@@ -466,7 +502,7 @@ require_once 'header.php';
                                         ?>
                                         <span class="inventar-zustand <?= $zInfo['class'] ?>"><?= $zInfo['label'] ?></span>
                                     </td>
-                                    <td data-label="Ausgegeben an"><span class="waffenkammer-issued-name"><?= htmlspecialchars($item['ausgegeben_an'] ?? '—') ?></span></td>
+                                    <td data-label="Ausgegeben"><span class="waffenkammer-issued-name"><?= (int)($item['ausgegeben_menge'] ?? 0) ?>/<?= (int)$item['bestand'] ?> an <?= htmlspecialchars($item['ausgegeben_an'] ?? '—') ?></span></td>
                                     <?php if (hasPermission('miliz', 'write')): ?>
                                         <td data-label="Aktionen" style="white-space:nowrap;">
                                             <div class="waffenkammer-actions">
@@ -486,7 +522,8 @@ require_once 'header.php';
                                                     <input type="hidden" name="wk_update" value="1">
                                                     <input type="hidden" name="wk_item_id" value="<?= $item['id'] ?>">
                                                     <input type="text" name="wk_ausgegeben_an" placeholder="Ausgegeben an..." value="<?= htmlspecialchars($item['ausgegeben_an'] ?? '') ?>" style="width:140px; font-size:0.8rem; padding:3px;">
-                                                    <button type="submit" class="rp-btn rp-btn--primary rp-btn--small" style="padding:3px 8px;">Person</button>
+                                                    <input type="number" name="wk_ausgegeben_menge" min="0" max="<?= (int)$item['bestand'] ?>" value="<?= min((int)($item['ausgegeben_menge'] ?? 0), (int)$item['bestand']) ?>" style="width:72px; font-size:0.8rem; padding:3px;">
+                                                    <button type="submit" class="rp-btn rp-btn--primary rp-btn--small" style="padding:3px 8px;">Ausgabe</button>
                                                 </form>
                                                 <form method="post" onsubmit="return confirm('Entfernen?');">
                                                     <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
@@ -512,7 +549,7 @@ require_once 'header.php';
                             <div class="rp-card__header">
                                 <h3 class="rp-card__title"><?= parseRichTextSimple($entry['title']) ?></h3>
                             </div>
-                            <div class="rp-card__content"><?= parseRichText($entry['crime_summary'] ?? $entry['content']) ?></div>
+                            <div class="rp-card__content"><?= renderMilizContent($entry) ?></div>
                             <?php if (hasPermission('miliz', 'write')): ?>
                                 <div class="rp-card__footer">
                                     <form method="post" onsubmit="return confirm('Löschen?');">
@@ -569,7 +606,7 @@ require_once 'header.php';
                         <div class="wanted-poster__name"><?= parseRichTextSimple($entry['title']) ?></div>
 
                         <div class="wanted-poster__verbrechen">
-                            <?= parseRichText($entry['crime_summary'] ?? $entry['content']) ?>
+                            <?= renderMilizContent($entry) ?>
                         </div>
 
                         <div class="wanted-poster__belohnung">
@@ -641,7 +678,7 @@ require_once 'header.php';
                             <span class="rp-meta-date">📅 <?= formatDate($entry['created_at']) ?></span>
                         </div>
 
-                        <div class="rp-card__content"><?= parseRichText($entry['crime_summary'] ?? $entry['content']) ?></div>
+                        <div class="rp-card__content"><?= renderMilizContent($entry) ?></div>
 
                         <?php if ($entry['file_path'] || hasPermission('miliz', 'write')): ?>
                             <div class="rp-card__footer">
@@ -717,7 +754,7 @@ require_once 'header.php';
                         </div>
                         
                         <div class="rp-card__content">
-                            <?php echo parseRichText($entry['content']); ?>
+                            <?php echo renderMilizContent($entry); ?>
                         </div>
                         
                         <?php if ($entry['file_path'] || hasPermission('miliz', 'write')): ?>
