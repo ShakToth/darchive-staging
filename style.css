@@ -198,7 +198,7 @@ header {
 }
 
 .nav-input {
-    background: rgba(244, 228, 188, 0.1);
+    background: rgba(244, 228, 188, 0.22);
     border: 1px solid rgba(212, 175, 55, 0.3);
     color: var(--bg-parchment);
     padding: 8px 15px;
@@ -438,7 +438,7 @@ header {
     align-items: center;
     justify-content: center;
     padding: 5px 20px;
-    background: rgba(244, 228, 188, 0.1);
+    background: rgba(244, 228, 188, 0.22);
     border: 2px solid rgba(139, 90, 43, 0.4);
     border-radius: var(--border-radius);
     text-decoration: none;
@@ -999,7 +999,7 @@ header {
 
 /* MODIFIER: Transparent Card (Immersive Mode) */
 .rp-card--transparent {
-    background: rgba(227, 209, 162, 0.95);
+    background: rgba(242, 229, 194, 0.98);
     backdrop-filter: blur(10px);
     border: 2px solid rgba(139, 90, 43, 0.6);
     box-shadow: 
@@ -1781,7 +1781,7 @@ body:has(#globalLightbox[style*="display: block"]) .rp-tooltip {
 }
 
 .rp-view-immersive .rp-table tbody tr:hover {
-    background: rgba(212, 175, 55, 0.3);
+    background: rgba(212, 175, 55, 0.52);
 }
 
 /* =================================================================
@@ -2554,6 +2554,17 @@ button:hover, .nav-btn:hover {
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
 }
 
+.rp-book-cover__title {
+    font-family: var(--font-elegant);
+    font-size: 0.85rem;
+    text-align: center;
+    max-width: 90%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: 0.5px;
+}
+
 .rp-book-cover__ext {
     font-size: 0.7rem;
     text-transform: uppercase;
@@ -2563,6 +2574,13 @@ button:hover, .nav-btn:hover {
 }
 
 /* Quality-spezifische Cover-Farben */
+
+
+.rp-book-cover--pdf { border-left: 2px solid rgba(180, 40, 40, 0.45); }
+.rp-book-cover--txt, .rp-book-cover--md { border-left: 2px solid rgba(180, 150, 80, 0.45); }
+.rp-book-cover--doc, .rp-book-cover--docx { border-left: 2px solid rgba(80, 120, 180, 0.45); }
+.rp-book-cover--epub { border-left: 2px solid rgba(80, 180, 120, 0.45); }
+
 .quality-common .rp-book-cover { background-color: #4a4a4a; }
 .quality-uncommon .rp-book-cover { background-color: #2a4a2a; }
 .quality-rare .rp-book-cover { background-color: #1a3a5a; }
@@ -2575,6 +2593,14 @@ button:hover, .nav-btn:hover {
 /* =================================================================
    22. CARD ACTION BAR (Bibliothek)
    ================================================================= */
+
+
+.rp-card__read-meta {
+    display: block;
+    font-size: 0.75rem;
+    color: rgba(244, 228, 188, 0.9);
+    margin-top: 2px;
+}
 
 .rp-card__quality-label {
     font-size: 0.7rem;
@@ -2717,10 +2743,33 @@ button:hover, .nav-btn:hover {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    background: rgba(212, 175, 55, 0.15);
+    background: rgba(70, 46, 18, 0.82);
     padding: 5px 15px;
     border-radius: 4px;
     border: 1px solid rgba(212, 175, 55, 0.4);
+}
+
+.wanted-poster__belohnung .coin {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.65);
+}
+
+.wanted-poster__belohnung .coin--gold {
+    color: #d4af37;
+    background: rgba(212, 175, 55, 0.12);
+}
+
+.wanted-poster__belohnung .coin--silver {
+    color: #c0c0c0;
+    background: rgba(192, 192, 192, 0.12);
+}
+
+.wanted-poster__belohnung .coin--copper {
+    color: #b87333;
+    background: rgba(184, 115, 51, 0.12);
 }
 
 /* =================================================================
@@ -2843,27 +2892,27 @@ button:hover, .nav-btn:hover {
 }
 
 .inventar-zustand--gut {
-    background: rgba(30, 255, 0, 0.15);
-    border: 1px solid rgba(30, 255, 0, 0.4);
-    color: #1eff00;
+    background: rgba(30, 255, 0, 0.35);
+    border: 1px solid rgba(30, 255, 0, 0.7);
+    color: #133a0e;
 }
 
 .inventar-zustand--beschaedigt {
-    background: rgba(212, 175, 55, 0.15);
+    background: rgba(70, 46, 18, 0.82);
     border: 1px solid rgba(212, 175, 55, 0.4);
     color: #d4af37;
 }
 
 .inventar-zustand--defekt {
-    background: rgba(255, 0, 0, 0.15);
-    border: 1px solid rgba(255, 0, 0, 0.4);
-    color: #ff4444;
+    background: rgba(255, 0, 0, 0.28);
+    border: 1px solid rgba(255, 0, 0, 0.65);
+    color: #4d0b0b;
 }
 
 .inventar-zustand--ausgegeben {
-    background: rgba(0, 112, 221, 0.15);
-    border: 1px solid rgba(0, 112, 221, 0.4);
-    color: #0070dd;
+    background: rgba(0, 112, 221, 0.28);
+    border: 1px solid rgba(0, 112, 221, 0.65);
+    color: #082d59;
 }
 
 /* =================================================================
@@ -2876,7 +2925,7 @@ button:hover, .nav-btn:hover {
     flex-wrap: wrap;
     margin-bottom: 20px;
     padding: 12px;
-    background: rgba(0, 0, 0, 0.2);
+    background: rgba(32, 20, 10, 0.68);
     border-radius: var(--border-radius);
     border: 1px solid rgba(212, 175, 55, 0.2);
 }
@@ -2889,14 +2938,14 @@ button:hover, .nav-btn:hover {
     cursor: pointer;
     transition: all 0.2s;
     border: 1px solid rgba(244, 228, 188, 0.3);
-    background: rgba(244, 228, 188, 0.1);
+    background: rgba(244, 228, 188, 0.22);
     color: var(--bg-parchment);
     text-decoration: none;
 }
 
 .miliz-filter__btn:hover,
 .miliz-filter__btn--active {
-    background: rgba(212, 175, 55, 0.3);
+    background: rgba(212, 175, 55, 0.52);
     border-color: var(--accent-gold);
     color: var(--accent-gold);
 }
@@ -2911,9 +2960,9 @@ button:hover, .nav-btn:hover {
 }
 
 .miliz-status-badge--aktiv {
-    background: rgba(30, 255, 0, 0.15);
-    border: 1px solid rgba(30, 255, 0, 0.4);
-    color: #1eff00;
+    background: rgba(30, 255, 0, 0.35);
+    border: 1px solid rgba(30, 255, 0, 0.7);
+    color: #133a0e;
 }
 
 .miliz-status-badge--fluechtig {
@@ -2992,3 +3041,103 @@ button:hover, .nav-btn:hover {
 /* =================================================================
    ENDE DÄMMERHAFEN CSS v2.0 + ERWEITERUNGEN
    ================================================================= */
+
+.rp-view-immersive .rp-card--transparent .rp-card__title,
+.rp-view-immersive .rp-card--transparent .rp-card__content,
+.rp-view-immersive .rp-card--transparent .rp-card__meta,
+.rp-view-immersive .rp-card--transparent .rp-meta-author,
+.rp-view-immersive .rp-card--transparent .rp-meta-date {
+    color: #2f2216;
+    text-shadow: none;
+}
+
+
+.miliz-rang-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-family: var(--font-heading);
+    white-space: nowrap;
+    background: rgba(163, 53, 238, 0.22);
+    border: 1px solid rgba(163, 53, 238, 0.5);
+    color: #4d1d73;
+}
+
+.waffenkammer-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
+}
+
+.waffenkammer-action-form {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.waffenkammer-issued-name {
+    display: inline-block;
+    background: rgba(44, 30, 18, 0.12);
+    border: 1px solid rgba(44, 30, 18, 0.18);
+    border-radius: 4px;
+    padding: 4px 8px;
+    color: #2c1e12;
+}
+
+@media (max-width: 900px) {
+    .rp-table.rp-table--waffenkammer thead {
+        display: none;
+    }
+
+    .rp-table.rp-table--waffenkammer,
+    .rp-table.rp-table--waffenkammer tbody,
+    .rp-table.rp-table--waffenkammer tr,
+    .rp-table.rp-table--waffenkammer td {
+        display: block;
+        width: 100%;
+    }
+
+    .rp-table.rp-table--waffenkammer tr {
+        background: rgba(244, 228, 188, 0.72);
+        border: 1px solid rgba(139, 90, 43, 0.35);
+        border-radius: 8px;
+        margin-bottom: 10px;
+        padding: 8px;
+    }
+
+    .rp-table.rp-table--waffenkammer td {
+        border: none;
+        padding: 8px 8px 8px 40%;
+        position: relative;
+        min-height: 30px;
+    }
+
+    .rp-table.rp-table--waffenkammer td::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 8px;
+        top: 8px;
+        width: 35%;
+        font-family: var(--font-heading);
+        color: #5a3a1c;
+        font-size: 0.78rem;
+    }
+
+    .waffenkammer-action-form {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .waffenkammer-action-form input[type='text'],
+    .waffenkammer-action-form select {
+        flex: 1;
+        min-width: 120px;
+    }
+}
+
+
+.rp-view-immersive .rp-card--transparent {
+    background: rgba(248, 238, 211, 0.995);
+}
