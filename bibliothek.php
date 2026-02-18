@@ -253,7 +253,12 @@ if ($query !== '' && !isset($_GET['cat'])) {
                     $isForbidden = ($file['category'] ?? '') === 'forbidden';
                     $quality = $file['quality'] ?? 'common';
                     $qualityClass = 'quality-' . $quality;
-                    $isPdf = (strtolower(pathinfo($file['name'], PATHINFO_EXTENSION)) === 'pdf');
+                    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+                    $isPdf = ($ext === 'pdf');
+                    $isBook = in_array($ext, ['pdf', 'txt', 'md', 'doc', 'docx', 'epub']);
+                    $lastReadBy = trim((string)($file['last_read_by'] ?? ''));
+                    $lastReadAt = isset($file['last_read_at']) ? intval($file['last_read_at']) : null;
+                    $readLog = $isBook ? getReadLog($file['name'], 3) : [];
                     ?>
                     
                     <div class="rp-card-wrapper <?php echo $qualityClass; ?>">
@@ -267,12 +272,32 @@ if ($query !== '' && !isset($_GET['cat'])) {
                             <div class="rp-card__preview">
                                 <?php if ($file['is_image']): ?>
                                     <img src="<?php echo $file['path']; ?>" loading="lazy" alt="<?php echo htmlspecialchars($file['name']); ?>">
+                                <?php elseif ($isBook): ?>
+                                    <?php
+                                    $bookIconMap = [
+                                        'pdf' => '📕',
+                                        'txt' => '📜',
+                                        'md' => '📝',
+                                        'doc' => '📘',
+                                        'docx' => '📘',
+                                        'epub' => '📚'
+                                    ];
+                                    $bookIcon = $bookIconMap[$ext] ?? '📚';
+                                    ?>
+                                    <div class="rp-book-cover rp-book-cover--<?php echo $ext; ?>" aria-hidden="true">
+                                        <span class="rp-book-cover__icon"><?php echo $bookIcon; ?></span>
+                                        <span class="rp-book-cover__title"><?php echo htmlspecialchars(pathinfo($file['name'], PATHINFO_FILENAME)); ?></span>
+                                        <span class="rp-book-cover__ext">.<?php echo htmlspecialchars($ext); ?></span>
+                                    </div>
                                 <?php else: ?>
                                     <span class="rp-card__icon"><?php echo $file['icon']; ?></span>
                                 <?php endif; ?>
                             </div>
                             <div class="rp-card__info">
                                 <span class="rp-card__filename"><?php echo htmlspecialchars($file['name']); ?></span>
+                                <?php if ($isBook): ?>
+                                    <span class="rp-card__read-meta"><?php echo $lastReadBy !== '' ? ('📖 Zuletzt: ' . htmlspecialchars($lastReadBy)) : '📖 Noch ungelesen'; ?></span>
+                                <?php endif; ?>
                                 <span class="rp-card__file-meta">
                                     <?php echo formatFileSize($file['size']); ?>
                                     <?php if (isset($file['category_label'])): ?>
@@ -293,6 +318,20 @@ if ($query !== '' && !isset($_GET['cat'])) {
                                 <div>📅 Archiviert: <?php echo formatDate($file['modified']); ?></div>
                                 <?php if (isset($file['category_label'])): ?>
                                     <div>📂 Kategorie: <?php echo strip_tags($file['category_label']); ?></div>
+                                <?php endif; ?>
+                                <?php if ($isBook): ?>
+                                    <?php if ($lastReadBy !== '' && $lastReadAt): ?>
+                                        <div>📖 Zuletzt gelesen von: <?php echo htmlspecialchars($lastReadBy); ?> (<?php echo formatDate($lastReadAt); ?>)</div>
+                                    <?php else: ?>
+                                        <div>📖 Zuletzt gelesen von: Noch nicht gelesen</div>
+                                    <?php endif; ?>
+                                    <?php if (!empty($readLog)): ?>
+                                        <div style="margin-top:6px; opacity:0.9;">🗒️ Letzte Leser:
+                                            <?php foreach ($readLog as $idx => $log): ?>
+                                                <div style="font-size:0.85em; margin-left:10px;">- <?php echo htmlspecialchars($log['reader_name']); ?> (<?php echo formatDate(intval($log['read_at'])); ?>)</div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    <?php endif; ?>
                                 <?php endif; ?>
                             </div>
                         </div>
