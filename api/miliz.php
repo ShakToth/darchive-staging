@@ -83,14 +83,14 @@ if ($method === 'POST') {
     $filePath = '';
     if (!empty($_FILES['datei']) && $_FILES['datei']['error'] === UPLOAD_ERR_OK) {
         requireApiPermission('miliz', 'upload');
-        $uploadResult = handleMilizFileUpload($category);
+        $uploadResult = handleMilizFileUpload($_FILES['datei'], $category);
         if ($uploadResult && isset($uploadResult['path'])) {
             $filePath = $uploadResult['path'];
         }
     }
 
     // Eintrag erstellen
-    $result = createMilizEntry($category, $title, $content, $filePath, $priority);
+    $result = createMilizEntry($category, $title, $content, 'Die Miliz', $filePath, $priority);
 
     if ($result) {
         jsonSuccess('Eintrag erstellt', ['id' => $result]);
