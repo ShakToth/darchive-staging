@@ -60,7 +60,8 @@ function initMilizDB() {
             "ALTER TABLE miliz_entries ADD COLUMN bounty_gold INTEGER DEFAULT 0",
             "ALTER TABLE miliz_entries ADD COLUMN bounty_silver INTEGER DEFAULT 0",
             "ALTER TABLE miliz_entries ADD COLUMN bounty_copper INTEGER DEFAULT 0",
-            "ALTER TABLE miliz_entries ADD COLUMN crime_summary TEXT DEFAULT NULL"
+            "ALTER TABLE miliz_entries ADD COLUMN crime_summary TEXT DEFAULT NULL",
+            "ALTER TABLE miliz_entries ADD COLUMN rank_text TEXT DEFAULT NULL"
         ] as $sql) {
             try {
                 $db->exec($sql);
@@ -135,20 +136,39 @@ function createMilizEntry($category, $title, $content, $author = 'Die Miliz', $f
                 ':crime_summary' => trim((string)($wantedData['crime_summary'] ?? '')) ?: null
             ]);
         } else {
-            $stmt = $db->prepare("
-                INSERT INTO miliz_entries (category, title, content, author, file_path, created_at, updated_at, priority)
-                VALUES (:category, :title, :content, :author, :file_path, :created_at, :updated_at, :priority)
-            ");
-            $stmt->execute([
-                ':category' => $category,
-                ':title' => $title,
-                ':content' => $content,
-                ':author' => $author,
-                ':file_path' => $filePath,
-                ':created_at' => $timestamp,
-                ':updated_at' => $timestamp,
-                ':priority' => $priority
-            ]);
+            $rankText = trim((string)($wantedData['rank_text'] ?? ''));
+            if ($category === 'steckbriefe') {
+                $stmt = $db->prepare("
+                    INSERT INTO miliz_entries (category, title, content, author, file_path, created_at, updated_at, priority, rank_text)
+                    VALUES (:category, :title, :content, :author, :file_path, :created_at, :updated_at, :priority, :rank_text)
+                ");
+                $stmt->execute([
+                    ':category' => $category,
+                    ':title' => $title,
+                    ':content' => $content,
+                    ':author' => $author,
+                    ':file_path' => $filePath,
+                    ':created_at' => $timestamp,
+                    ':updated_at' => $timestamp,
+                    ':priority' => $priority,
+                    ':rank_text' => $rankText !== '' ? $rankText : null
+                ]);
+            } else {
+                $stmt = $db->prepare("
+                    INSERT INTO miliz_entries (category, title, content, author, file_path, created_at, updated_at, priority)
+                    VALUES (:category, :title, :content, :author, :file_path, :created_at, :updated_at, :priority)
+                ");
+                $stmt->execute([
+                    ':category' => $category,
+                    ':title' => $title,
+                    ':content' => $content,
+                    ':author' => $author,
+                    ':file_path' => $filePath,
+                    ':created_at' => $timestamp,
+                    ':updated_at' => $timestamp,
+                    ':priority' => $priority
+                ]);
+            }
         }
 
         return ['type' => 'success', 'text' => '✅ Eintrag erfolgreich erstellt!'];

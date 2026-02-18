@@ -31,6 +31,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_entry']) && is
                 'status' => $_POST['wanted_status'] ?? 'aktiv'
             ];
         }
+
+
+        if ($category === 'steckbriefe') {
+            $wantedData['rank_text'] = trim($_POST['entry_rank'] ?? '');
+        }
         
         $filePath = null;
         
@@ -374,13 +379,19 @@ require_once 'header.php';
                                 </div>
                             </div>
                             <div>
-                                <label class="rp-label">⭐ Priorität</label>
-                                <select name="entry_priority" class="rp-select" style="width: 100%;">
-                                    <option value="0">Normal</option>
-                                    <option value="1">Wichtig</option>
-                                    <option value="2">Sehr wichtig</option>
-                                    <option value="3">Dringend</option>
-                                </select>
+                                <?php if ($view === 'steckbriefe'): ?>
+                                    <label class="rp-label">🎖️ Rang</label>
+                                    <input type="text" name="entry_rank" class="rp-input" placeholder="z. B. Hauptmann" maxlength="120" style="width:100%; box-sizing:border-box;">
+                                    <input type="hidden" name="entry_priority" value="0">
+                                <?php else: ?>
+                                    <label class="rp-label">⭐ Priorität</label>
+                                    <select name="entry_priority" class="rp-select" style="width: 100%;">
+                                        <option value="0">Normal</option>
+                                        <option value="1">Wichtig</option>
+                                        <option value="2">Sehr wichtig</option>
+                                        <option value="3">Dringend</option>
+                                    </select>
+                                <?php endif; ?>
                             </div>
                         </div>
                     <?php endif; ?>
@@ -429,7 +440,7 @@ require_once 'header.php';
             <?php endif; ?>
 
             <div class="rp-table-wrapper">
-                <table class="rp-table">
+                <table class="rp-table rp-table--waffenkammer">
                     <thead>
                         <tr>
                             <th>Gegenstand</th>
@@ -446,36 +457,43 @@ require_once 'header.php';
                         <?php else: ?>
                             <?php foreach ($wkItems as $item): ?>
                                 <tr>
-                                    <td class="rp-table__name"><?= htmlspecialchars($item['name']) ?></td>
-                                    <td class="rp-table__desc"><?= htmlspecialchars($item['beschreibung']) ?></td>
-                                    <td style="text-align:center; font-weight:bold;"><?= (int)$item['bestand'] ?></td>
-                                    <td class="rp-table__status">
+                                    <td class="rp-table__name" data-label="Gegenstand"><?= htmlspecialchars($item['name']) ?></td>
+                                    <td class="rp-table__desc" data-label="Beschreibung"><?= htmlspecialchars($item['beschreibung']) ?></td>
+                                    <td data-label="Bestand" style="text-align:center; font-weight:bold;"><?= (int)$item['bestand'] ?></td>
+                                    <td class="rp-table__status" data-label="Zustand">
                                         <?php
                                         $zInfo = WAFFENKAMMER_ZUSTAND[$item['zustand']] ?? WAFFENKAMMER_ZUSTAND['gut'];
                                         ?>
                                         <span class="inventar-zustand <?= $zInfo['class'] ?>"><?= $zInfo['label'] ?></span>
                                     </td>
-                                    <td><?= htmlspecialchars($item['ausgegeben_an'] ?? '—') ?></td>
+                                    <td data-label="Ausgegeben an"><span class="waffenkammer-issued-name"><?= htmlspecialchars($item['ausgegeben_an'] ?? '—') ?></span></td>
                                     <?php if (hasPermission('miliz', 'write')): ?>
-                                        <td style="white-space:nowrap;">
-                                            <!-- Inline-Edit: Zustand + Ausgegeben an -->
-                                            <form method="post" style="display:inline-flex; gap:4px; align-items:center;">
-                                                <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
-                                                <input type="hidden" name="wk_update" value="1">
-                                                <input type="hidden" name="wk_item_id" value="<?= $item['id'] ?>">
-                                                <select name="wk_zustand" style="font-size:0.8rem; padding:3px;">
-                                                    <?php foreach (WAFFENKAMMER_ZUSTAND as $zKey => $zData): ?>
-                                                        <option value="<?= $zKey ?>" <?= $item['zustand'] === $zKey ? 'selected' : '' ?>><?= $zData['label'] ?></option>
-                                                    <?php endforeach; ?>
-                                                </select>
-                                                <input type="text" name="wk_ausgegeben_an" placeholder="An..." value="<?= htmlspecialchars($item['ausgegeben_an'] ?? '') ?>" style="width:80px; font-size:0.8rem; padding:3px;">
-                                                <button type="submit" class="rp-btn rp-btn--primary rp-btn--small" style="padding:3px 8px;">💾</button>
-                                            </form>
-                                            <form method="post" style="display:inline; margin-left:4px;" onsubmit="return confirm('Entfernen?');">
-                                                <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
-                                                <input type="hidden" name="wk_delete" value="<?= $item['id'] ?>">
-                                                <button type="submit" class="rp-btn rp-btn--danger rp-btn--mini">🔥</button>
-                                            </form>
+                                        <td data-label="Aktionen" style="white-space:nowrap;">
+                                            <div class="waffenkammer-actions">
+                                                <form method="post" class="waffenkammer-action-form">
+                                                    <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
+                                                    <input type="hidden" name="wk_update" value="1">
+                                                    <input type="hidden" name="wk_item_id" value="<?= $item['id'] ?>">
+                                                    <select name="wk_zustand" style="font-size:0.8rem; padding:3px;">
+                                                        <?php foreach (WAFFENKAMMER_ZUSTAND as $zKey => $zData): ?>
+                                                            <option value="<?= $zKey ?>" <?= $item['zustand'] === $zKey ? 'selected' : '' ?>><?= $zData['label'] ?></option>
+                                                        <?php endforeach; ?>
+                                                    </select>
+                                                    <button type="submit" class="rp-btn rp-btn--primary rp-btn--small" style="padding:3px 8px;">Zustand</button>
+                                                </form>
+                                                <form method="post" class="waffenkammer-action-form">
+                                                    <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
+                                                    <input type="hidden" name="wk_update" value="1">
+                                                    <input type="hidden" name="wk_item_id" value="<?= $item['id'] ?>">
+                                                    <input type="text" name="wk_ausgegeben_an" placeholder="Ausgegeben an..." value="<?= htmlspecialchars($item['ausgegeben_an'] ?? '') ?>" style="width:140px; font-size:0.8rem; padding:3px;">
+                                                    <button type="submit" class="rp-btn rp-btn--primary rp-btn--small" style="padding:3px 8px;">Person</button>
+                                                </form>
+                                                <form method="post" onsubmit="return confirm('Entfernen?');">
+                                                    <input type="hidden" name="csrf_token" value="<?= $csrfToken ?>">
+                                                    <input type="hidden" name="wk_delete" value="<?= $item['id'] ?>">
+                                                    <button type="submit" class="rp-btn rp-btn--danger rp-btn--mini">🔥</button>
+                                                </form>
+                                            </div>
                                         </td>
                                     <?php endif; ?>
                                 </tr>
@@ -604,23 +622,17 @@ require_once 'header.php';
             <div class="rp-grid rp-grid--entries">
                 <?php foreach ($entries as $entry): ?>
                     <?php
-                    $priorityClass = '';
-                    $priorityLabel = '';
-                    if ($entry['priority'] >= 3) { $priorityClass = 'priority-urgent'; $priorityLabel = '🔥 DRINGEND'; }
-                    elseif ($entry['priority'] == 2) { $priorityClass = 'priority-high'; $priorityLabel = '⚠️ Sehr wichtig'; }
-                    elseif ($entry['priority'] == 1) { $priorityClass = 'priority-medium'; $priorityLabel = '⭐ Wichtig'; }
                     $entryStatus = $entry['status'] ?? 'aktiv';
                     $statusInfo = MILIZ_STATUS_VALUES[$entryStatus] ?? MILIZ_STATUS_VALUES['aktiv'];
+                    $rankText = trim((string)($entry['rank_text'] ?? ''));
                     ?>
 
-                    <div class="rp-card rp-card--entry rp-card--transparent <?= $priorityClass ?>">
+                    <div class="rp-card rp-card--entry rp-card--transparent">
                         <div class="rp-card__header">
                             <h3 class="rp-card__title"><?= parseRichTextSimple($entry['title']) ?></h3>
-                            <div style="display:flex; gap:8px; align-items:center;">
+                            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                                 <span class="miliz-status-badge miliz-status-badge--<?= $entryStatus ?>"><?= $statusInfo['icon'] ?> <?= $statusInfo['label'] ?></span>
-                                <?php if ($priorityLabel): ?>
-                                    <span class="rp-priority-badge"><?= $priorityLabel ?></span>
-                                <?php endif; ?>
+                                <span class="miliz-rang-badge">🎖️ <?= htmlspecialchars($rankText !== '' ? $rankText : 'Milizionär') ?></span>
                             </div>
                         </div>
 
