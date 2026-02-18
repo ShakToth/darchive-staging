@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔒 Sicherheits-Test</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #0f0;
+            padding: 40px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #000;
+            border: 2px solid #0f0;
+            padding: 30px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+        }
+        h1 {
+            text-align: center;
+            color: #0f0;
+            text-shadow: 0 0 10px #0f0;
+            margin-bottom: 30px;
+        }
+        .test {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #333;
+            background: #0a0a0a;
+        }
+        .test-name {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 3px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .pass {
+            background: #0a0;
+            color: #000;
+        }
+        .fail {
+            background: #a00;
+            color: #fff;
+        }
+        .warn {
+            background: #aa0;
+            color: #000;
+        }
+        .loading {
+            background: #00a;
+            color: #fff;
+        }
+        .info {
+            color: #888;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        button {
+            background: #0f0;
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.1em;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            display: block;
+            margin: 30px auto;
+            box-shadow: 0 0 10px #0f0;
+        }
+        button:hover {
+            background: #0ff;
+            box-shadow: 0 0 20px #0ff;
+        }
+        .summary {
+            margin-top: 40px;
+            padding: 20px;
+            border: 2px solid #0f0;
+            text-align: center;
+            font-size: 1.3em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔒 BIBLIOTHEKS-SICHERHEITS-TEST</h1>
+        
+        <button onclick="runTests()">Tests starten</button>
+
+        <div id="results"></div>
+
+        <div id="summary" style="display:none;" class="summary"></div>
+    </div>
+
+    <script>
+        async function runTests() {
+            const resultsDiv = document.getElementById('results');
+            const summaryDiv = document.getElementById('summary');
+            resultsDiv.innerHTML = '';
+            summaryDiv.style.display = 'none';
+
+            let passed = 0;
+            let failed = 0;
+            let warned = 0;
+
+            // Test 1: Directory Listing
+            await testUrl(
+                'Test 1: Directory Listing blockiert?',
+                'uploads/',
+                'Verhindert dass Ordnerinhalte sichtbar sind',
+                (status) => status === 403 || status === 404,
+                resultsDiv
+            ).then(success => success ? passed++ : failed++);
+
+            // Test 2: functions.php geschützt
+            await testUrl(
+                'Test 2: functions.php geschützt?',
+                'functions.php',
+                'Verbietet direkten Zugriff auf PHP-Code',
+                (status) => status === 403 || status === 404,
+                resultsDiv
+            ).then(success => success ? passed++ : failed++);
+
+            // Test 3: .htaccess geschützt
+            await testUrl(
+                'Test 3: .htaccess geschützt?',
+                '.htaccess',
+                'Schützt Konfigurationsdateien',
+                (status) => status === 403 || status === 404,
+                resultsDiv
+            ).then(success => success ? passed++ : failed++);
+
+            // Test 4: index.php erreichbar
+            await testUrl(
+                'Test 4: index.php funktioniert?',
+                'index.php',
+                'Hauptseite muss erreichbar sein',
+                (status) => status === 200,
+                resultsDiv
+            ).then(success => success ? passed++ : failed++);
+
+            // Test 5: Security Headers
+            const headers = await checkHeaders(resultsDiv);
+            if (headers.all) passed++;
+            else if (headers.some) { warned++; passed++; }
+            else failed++;
+
+            // Summary
+            summaryDiv.style.display = 'block';
+            const total = passed + failed;
+            const percentage = Math.round((passed / total) * 100);
+            
+            let grade = 'F';
+            let color = '#a00';
+            if (percentage >= 90) { grade = 'A+'; color = '#0f0'; }
+            else if (percentage >= 80) { grade = 'A'; color = '#0f0'; }
+            else if (percentage >= 70) { grade = 'B'; color = '#aa0'; }
+            else if (percentage >= 60) { grade = 'C'; color = '#aa0'; }
+            else if (percentage >= 50) { grade = 'D'; color = '#a00'; }
+
+            summaryDiv.style.borderColor = color;
+            summaryDiv.style.color = color;
+            summaryDiv.innerHTML = `
+                <strong>ERGEBNIS:</strong><br>
+                ${passed} von ${total} Tests bestanden<br>
+                Note: <span style="font-size:1.5em">${grade}</span> (${percentage}%)
+                ${warned > 0 ? '<br><small>⚠️ ' + warned + ' Warnung(en)</small>' : ''}
+            `;
+        }
+
+        async function testUrl(name, url, description, validateStatus, container) {
+            const testDiv = document.createElement('div');
+            testDiv.className = 'test';
+            testDiv.innerHTML = `
+                <div class="test-name">${name}</div>
+                <div class="info">${description}</div>
+                <div class="status loading">🔄 Teste...</div>
+            `;
+            container.appendChild(testDiv);
+
+            try {
+                const response = await fetch(url, { method: 'HEAD' });
+                const status = response.status;
+                const success = validateStatus(status);
+
+                const statusDiv = testDiv.querySelector('.status');
+                if (success) {
+                    statusDiv.className = 'status pass';
+                    statusDiv.textContent = `✅ BESTANDEN (${status})`;
+                    return true;
+                } else {
+                    statusDiv.className = 'status fail';
+                    statusDiv.textContent = `❌ FEHLGESCHLAGEN (${status})`;
+                    return false;
+                }
+            } catch (error) {
+                const statusDiv = testDiv.querySelector('.status');
+                statusDiv.className = 'status fail';
+                statusDiv.textContent = `❌ FEHLER: ${error.message}`;
+                return false;
+            }
+        }
+
+        async function checkHeaders(container) {
+            const testDiv = document.createElement('div');
+            testDiv.className = 'test';
+            testDiv.innerHTML = `
+                <div class="test-name">Test 5: Sicherheits-Header vorhanden?</div>
+                <div class="info">Prüft X-Frame-Options, X-Content-Type-Options, X-XSS-Protection</div>
+                <div class="status loading">🔄 Teste...</div>
+            `;
+            container.appendChild(testDiv);
+
+            try {
+                const response = await fetch('index.php');
+                const headers = response.headers;
+
+                const xFrame = headers.get('x-frame-options');
+                const xContent = headers.get('x-content-type-options');
+                const xXss = headers.get('x-xss-protection');
+
+                const found = [];
+                const missing = [];
+
+                if (xFrame) found.push(`X-Frame-Options: ${xFrame}`);
+                else missing.push('X-Frame-Options');
+
+                if (xContent) found.push(`X-Content-Type-Options: ${xContent}`);
+                else missing.push('X-Content-Type-Options');
+
+                if (xXss) found.push(`X-XSS-Protection: ${xXss}`);
+                else missing.push('X-XSS-Protection');
+
+                const statusDiv = testDiv.querySelector('.status');
+                
+                if (missing.length === 0) {
+                    statusDiv.className = 'status pass';
+                    statusDiv.innerHTML = `✅ BESTANDEN<br><small>${found.join('<br>')}</small>`;
+                    return { all: true, some: false };
+                } else if (found.length > 0) {
+                    statusDiv.className = 'status warn';
+                    statusDiv.innerHTML = `⚠️ TEILWEISE<br><small>Gefunden: ${found.join(', ')}<br>Fehlt: ${missing.join(', ')}</small>`;
+                    return { all: false, some: true };
+                } else {
+                    statusDiv.className = 'status fail';
+                    statusDiv.innerHTML = `❌ FEHLGESCHLAGEN<br><small>Keine Sicherheits-Header gefunden</small>`;
+                    return { all: false, some: false };
+                }
+            } catch (error) {
+                const statusDiv = testDiv.querySelector('.status');
+                statusDiv.className = 'status fail';
+                statusDiv.textContent = `❌ FEHLER: ${error.message}`;
+                return { all: false, some: false };
+            }
+        }
+    </script>
+</body>
+</html>

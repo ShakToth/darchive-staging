@@ -1,0 +1,209 @@
+═══════════════════════════════════════════════════════════════
+🐛 DÄMMERHAFEN v4.0 - BUGFIX RELEASE
+═══════════════════════════════════════════════════════════════
+
+🆕 VERSION 4.0 - Kritische Bugfixes
+Datum: 2024-02-14
+
+───────────────────────────────────────────────────────────────
+🐛 BUGFIXES (v3 → v4):
+───────────────────────────────────────────────────────────────
+
+1. ✅ UPLOAD-FELD JETZT SICHTBAR (Miliz)
+   
+   PROBLEM (v3):
+   - Label "📎 Anhang (optional)" war da
+   - ABER: File-Input war fast unsichtbar
+   - Nutzer konnten keine Dateien auswählen
+   
+   LÖSUNG (v4):
+   - Benutzerdefinierter Upload-Button
+   - "📁 Datei auswählen" - großer goldener Button
+   - Dateiname wird nach Auswahl angezeigt
+   - Deutlich sichtbar und klickbar
+   
+   Neues Design:
+   ┌─────────────────────────────────┐
+   │  [📁 Datei auswählen]          │ ← Goldener Button
+   │  Keine Datei gewählt            │ ← Dateiname-Anzeige
+   └─────────────────────────────────┘
+
+2. ✅ ICON-HOTSPOTS JETZT SICHTBAR (Dämmerhafen)
+   
+   PROBLEM (v3):
+   - Icons waren transparent/unsichtbar
+   - z-index zu niedrig (50)
+   - Wurden von anderen Elementen überdeckt
+   
+   LÖSUNG (v4):
+   - z-index erhöht: 50 → 150
+   - Hintergrund deutlicher: 0.25 → 0.5 opacity
+   - Border dicker: 3px → 4px
+   - Border sichtbarer: 0.6 → 0.9 opacity
+   - Goldener Glow IMMER sichtbar (nicht nur hover)
+   
+   Vorher: Fast unsichtbar ❌
+   Jetzt:  Deutlich goldene Kreise mit Emojis ✅
+
+───────────────────────────────────────────────────────────────
+📂 GEÄNDERTE DATEIEN:
+───────────────────────────────────────────────────────────────
+
+✏️ miliz.php              → Upload-Feld komplett neugestaltet
+✏️ style.css              → Icon-Hotspots deutlicher gemacht
+                            + CSS für File-Upload-Button
+🆕 icon_hotspot_debug.php → Debug-Tool für Icon-Probleme
+
+💾 BACKUPS ERSTELLT:
+   - miliz_v3_backup.php
+   - index_v3_backup.php
+   - style_v3_backup.css
+
+───────────────────────────────────────────────────────────────
+🚀 INSTALLATION v4:
+───────────────────────────────────────────────────────────────
+
+KRITISCH - ALLE 3 DATEIEN MÜSSEN AKTUALISIERT WERDEN:
+
+1. DATEIEN HOCHLADEN:
+   ✅ miliz.php → Überschreibt v3
+   ✅ style.css → Überschreibt v3
+   ⚠️  index.php → MUSS auch aktualisiert werden (falls noch v2!)
+   
+2. BROWSER-CACHE LEEREN:
+   → Windows: Strg + F5
+   → Mac: Cmd + Shift + R
+   
+   WICHTIG: Ohne Cache-Leeren siehst du die alte Version!
+
+3. TESTEN:
+   
+   TEST 1 - Icon-Hotspots:
+   → Rufe index.php auf
+   → Siehst du 4 GOLDENE KREISE mit Emojis? ✅
+   → Sind sie deutlich sichtbar (nicht transparent)? ✅
+   
+   TEST 2 - Upload-Feld:
+   → Gehe zu Miliz → Befehle
+   → Siehst du den goldenen "📁 Datei auswählen" Button? ✅
+   → Klicke drauf → Dateiauswahl öffnet sich? ✅
+   → Wähle Bild → Dateiname wird angezeigt? ✅
+
+4. DEBUG (falls noch Probleme):
+   → Lade icon_hotspot_debug.php hoch
+   → Rufe es auf: http://deine-site.de/icon_hotspot_debug.php
+   → Folge den Anweisungen
+
+───────────────────────────────────────────────────────────────
+🎨 VISUELLER VERGLEICH:
+───────────────────────────────────────────────────────────────
+
+ICON-HOTSPOTS:
+
+v3 (fast unsichtbar):
+   [Hintergrundbild]
+   ... wo sind die Icons? 🤔
+
+v4 (deutlich sichtbar):
+   [Hintergrundbild]
+   
+    ⚪ 📚  ← Goldener Kreis mit Emoji
+    ⚪ ⚔️
+    ⚪ 📋
+    ⚪ 📌
+
+UPLOAD-FELD:
+
+v3 (unsichtbar):
+   📎 Anhang (optional)
+   [                    ] ← Wo ist das Feld? 🤔
+
+v4 (deutlich sichtbar):
+   📎 Anhang (optional)
+   ┌──────────────────────┐
+   │ 📁 Datei auswählen   │ ← Großer goldener Button
+   └──────────────────────┘
+   Keine Datei gewählt      ← Status-Anzeige
+
+───────────────────────────────────────────────────────────────
+🔧 TECHNISCHE DETAILS:
+───────────────────────────────────────────────────────────────
+
+ICON-HOTSPOTS CSS:
+  z-index: 50 → 150
+  background opacity: 0.25 → 0.5
+  border: 3px/0.6 → 4px/0.9
+  + Permanenter goldener Glow
+
+FILE-UPLOAD:
+  - <input type="file"> versteckt
+  - Custom <label> als Button
+  - JavaScript zeigt Dateinamen
+  - WoW-Style goldenes Design
+
+───────────────────────────────────────────────────────────────
+❓ TROUBLESHOOTING:
+───────────────────────────────────────────────────────────────
+
+PROBLEM: Icons immer noch unsichtbar
+LÖSUNG:
+  1. Browser-Cache geleert? (Strg+F5)
+  2. Neue style.css hochgeladen?
+  3. Rufe icon_hotspot_debug.php auf
+  4. Prüfe z-index in Browser-DevTools (F12)
+
+PROBLEM: Upload-Button nicht sichtbar
+LÖSUNG:
+  1. Neue miliz.php hochgeladen?
+  2. Neue style.css hochgeladen?
+  3. Browser-Cache geleert?
+  4. F12 → Console → Fehler?
+
+PROBLEM: "Datei auswählen" funktioniert nicht
+LÖSUNG:
+  1. Prüfe ob JavaScript aktiv ist
+  2. F12 → Console → JavaScript-Fehler?
+  3. Teste in anderem Browser
+
+───────────────────────────────────────────────────────────────
+📍 ICON-POSITIONEN ANPASSEN (Optional):
+───────────────────────────────────────────────────────────────
+
+Falls Icons außerhalb des sichtbaren Bereichs sind:
+
+Öffne index.php, suche:
+<a href="bibliothek.php" class="icon-hotspot" 
+   style="top: 33%; left: 45%;" ...>
+
+Ändere Werte:
+- top: 0% (oben) bis 100% (unten)
+- left: 0% (links) bis 100% (rechts)
+
+Empfohlene symmetrische Anordnung:
+┌────────────────────────────────┐
+│                                │
+│    📚 (35%, 30%)  📋 (35%, 70%) │
+│                                │
+│    ⚔️ (50%, 30%)  📌 (50%, 70%) │
+│                                │
+└────────────────────────────────┘
+
+───────────────────────────────────────────────────────────────
+🎯 ZUSAMMENFASSUNG:
+───────────────────────────────────────────────────────────────
+
+v4 behebt die beiden kritischsten Bugs aus v3:
+
+✅ Upload-Feld ist jetzt ein großer, goldener Button
+✅ Icon-Hotspots sind deutlich sichtbar (goldene Kreise)
+
+WICHTIG:
+- ALLE 3 Dateien hochladen (miliz.php, style.css, index.php)
+- Browser-Cache UNBEDINGT leeren (Strg+F5)
+- Bei Problemen: icon_hotspot_debug.php nutzen
+
+═══════════════════════════════════════════════════════════════
+
+v4 sollte alle Sichtbarkeitsprobleme beheben! 🎨✅
+
+═══════════════════════════════════════════════════════════════

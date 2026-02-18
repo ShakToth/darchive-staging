@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dämmerhafen Hotspot-Tool</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+            font-family: Arial, sans-serif;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #d4af37;
+            margin-bottom: 30px;
+        }
+        
+        .workspace {
+            position: relative;
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        #cityImage {
+            width: 100%;
+            display: block;
+            border: 2px solid #d4af37;
+        }
+        
+        .hotspot {
+            position: absolute;
+            border: 3px solid #4a90e2;
+            background: rgba(74, 144, 226, 0.2);
+            cursor: move;
+            z-index: 10;
+            box-sizing: border-box;
+        }
+        
+        .hotspot:hover {
+            background: rgba(74, 144, 226, 0.4);
+            border-color: #2e6fb3;
+        }
+        
+        .hotspot-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 14px;
+            white-space: nowrap;
+            pointer-events: none;
+            color: #fff;
+        }
+        
+        .resize-handle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #d4af37;
+            border: 2px solid #000;
+            z-index: 11;
+        }
+        
+        .resize-se { bottom: -5px; right: -5px; cursor: se-resize; }
+        .resize-ne { top: -5px; right: -5px; cursor: ne-resize; }
+        .resize-sw { bottom: -5px; left: -5px; cursor: sw-resize; }
+        .resize-nw { top: -5px; left: -5px; cursor: nw-resize; }
+        
+        .controls {
+            margin-top: 30px;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 5px;
+        }
+        
+        .code-output {
+            background: #000;
+            padding: 20px;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            border: 2px solid #d4af37;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        button {
+            background: #d4af37;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        button:hover {
+            background: #c49f27;
+        }
+        
+        .info {
+            background: #1a3a5a;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #4a90e2;
+        }
+        
+        .add-hotspot-btn {
+            background: #28a745;
+            margin-bottom: 15px;
+        }
+        
+        .add-hotspot-btn:hover {
+            background: #218838;
+        }
+        
+        .hotspot-controls {
+            background: #333;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        
+        input[type="text"] {
+            padding: 5px;
+            margin: 0 5px;
+            background: #444;
+            border: 1px solid #666;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏰 Dämmerhafen Hotspot-Tool</h1>
+        
+        <div class="info">
+            <strong>Anleitung:</strong>
+            <ul>
+                <li>Lade dein <strong>dammerhafen.jpg</strong> Bild hoch</li>
+                <li>Klicke "Hotspot hinzufügen" für jeden Bereich (Bibliothek, Miliz, etc.)</li>
+                <li>Ziehe die Hotspots an die richtige Position</li>
+                <li>Ziehe an den Ecken um die Größe anzupassen</li>
+                <li>Klicke "Code generieren" um den PHP-Code zu erhalten</li>
+            </ul>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <input type="file" id="imageUpload" accept="image/*" style="padding: 10px;">
+        </div>
+        
+        <div class="hotspot-controls">
+            <strong>Hotspots verwalten:</strong><br><br>
+            <button onclick="addHotspot('bibliothek', '📚 Die Bibliothek', 'bibliothek.php')" class="add-hotspot-btn">+ Bibliothek</button>
+            <button onclick="addHotspot('miliz', '⚔️ Die Miliz', 'miliz.php')" class="add-hotspot-btn">+ Miliz</button>
+            <button onclick="addHotspot('verwaltung', '📋 Die Verwaltung', 'verwaltung.php')" class="add-hotspot-btn">+ Verwaltung</button>
+            <button onclick="addHotspot('aushaenge', '📌 Aushänge', 'aushaenge.php')" class="add-hotspot-btn">+ Aushänge</button>
+        </div>
+        
+        <div class="workspace" id="workspace">
+            <img id="cityImage" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1600' height='900'%3E%3Crect fill='%23333' width='1600' height='900'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' fill='%23666' font-size='24'%3ELade dein Stadt-Bild hoch%3C/text%3E%3C/svg%3E" alt="Stadt">
+        </div>
+        
+        <div class="controls">
+            <button onclick="generateCode()">📋 Code generieren</button>
+            <button onclick="clearHotspots()">🗑️ Alle Hotspots löschen</button>
+            
+            <div class="code-output" id="codeOutput">
+                Hier erscheint der PHP-Code nach Klick auf "Code generieren"
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let hotspotCounter = 0;
+        let draggedElement = null;
+        let startX, startY, startLeft, startTop;
+        let resizing = false;
+        let resizeElement = null;
+        let resizeHandle = null;
+        let startWidth, startHeight;
+        
+        function addHotspot(id, label, link) {
+            hotspotCounter++;
+            const hotspotId = id + '_' + hotspotCounter;
+            
+            const workspace = document.getElementById('workspace');
+            const hotspot = document.createElement('div');
+            hotspot.className = 'hotspot';
+            hotspot.id = hotspotId;
+            hotspot.dataset.name = label;
+            hotspot.dataset.link = link;
+            
+            // Standard-Position und -Größe
+            hotspot.style.top = (20 + (hotspotCounter * 5)) + '%';
+            hotspot.style.left = (20 + (hotspotCounter * 5)) + '%';
+            hotspot.style.width = '15%';
+            hotspot.style.height = '20%';
+            
+            hotspot.innerHTML = `
+                <span class="hotspot-label">${label}</span>
+                <div class="resize-handle resize-nw"></div>
+                <div class="resize-handle resize-ne"></div>
+                <div class="resize-handle resize-sw"></div>
+                <div class="resize-handle resize-se"></div>
+            `;
+            
+            workspace.appendChild(hotspot);
+            
+            // Event Listener
+            hotspot.addEventListener('mousedown', startDrag);
+            hotspot.querySelectorAll('.resize-handle').forEach(handle => {
+                handle.addEventListener('mousedown', startResize);
+            });
+        }
+        
+        function clearHotspots() {
+            if (confirm('Wirklich alle Hotspots löschen?')) {
+                document.querySelectorAll('.hotspot').forEach(h => h.remove());
+                hotspotCounter = 0;
+            }
+        }
+        
+        function startDrag(e) {
+            if (e.target.classList.contains('resize-handle')) return;
+            
+            draggedElement = e.currentTarget;
+            const rect = draggedElement.getBoundingClientRect();
+            const workspace = document.getElementById('workspace').getBoundingClientRect();
+            
+            startX = e.clientX;
+            startY = e.clientY;
+            startLeft = rect.left - workspace.left;
+            startTop = rect.top - workspace.top;
+            
+            document.addEventListener('mousemove', doDrag);
+            document.addEventListener('mouseup', stopDrag);
+            e.preventDefault();
+        }
+        
+        function doDrag(e) {
+            if (!draggedElement) return;
+            
+            const workspace = document.getElementById('workspace').getBoundingClientRect();
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+            
+            const newLeft = ((startLeft + deltaX) / workspace.width) * 100;
+            const newTop = ((startTop + deltaY) / workspace.height) * 100;
+            
+            draggedElement.style.left = Math.max(0, Math.min(100, newLeft)) + '%';
+            draggedElement.style.top = Math.max(0, Math.min(100, newTop)) + '%';
+        }
+        
+        function stopDrag() {
+            draggedElement = null;
+            document.removeEventListener('mousemove', doDrag);
+            document.removeEventListener('mouseup', stopDrag);
+        }
+        
+        function startResize(e) {
+            e.stopPropagation();
+            resizing = true;
+            resizeElement = e.target.parentElement;
+            resizeHandle = e.target.classList[1];
+            
+            const rect = resizeElement.getBoundingClientRect();
+            const workspace = document.getElementById('workspace').getBoundingClientRect();
+            
+            startX = e.clientX;
+            startY = e.clientY;
+            startWidth = rect.width;
+            startHeight = rect.height;
+            startLeft = rect.left - workspace.left;
+            startTop = rect.top - workspace.top;
+            
+            document.addEventListener('mousemove', doResize);
+            document.addEventListener('mouseup', stopResize);
+            e.preventDefault();
+        }
+        
+        function doResize(e) {
+            if (!resizing) return;
+            
+            const workspace = document.getElementById('workspace').getBoundingClientRect();
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+            
+            if (resizeHandle === 'resize-se') {
+                const newWidth = ((startWidth + deltaX) / workspace.width) * 100;
+                const newHeight = ((startHeight + deltaY) / workspace.height) * 100;
+                resizeElement.style.width = Math.max(5, newWidth) + '%';
+                resizeElement.style.height = Math.max(5, newHeight) + '%';
+            } else if (resizeHandle === 'resize-nw') {
+                const newWidth = ((startWidth - deltaX) / workspace.width) * 100;
+                const newHeight = ((startHeight - deltaY) / workspace.height) * 100;
+                const newLeft = ((startLeft + deltaX) / workspace.width) * 100;
+                const newTop = ((startTop + deltaY) / workspace.height) * 100;
+                
+                if (newWidth > 5 && newHeight > 5) {
+                    resizeElement.style.width = newWidth + '%';
+                    resizeElement.style.height = newHeight + '%';
+                    resizeElement.style.left = newLeft + '%';
+                    resizeElement.style.top = newTop + '%';
+                }
+            }
+        }
+        
+        function stopResize() {
+            resizing = false;
+            resizeElement = null;
+            document.removeEventListener('mousemove', doResize);
+            document.removeEventListener('mouseup', stopResize);
+        }
+        
+        function generateCode() {
+            const hotspots = document.querySelectorAll('.hotspot');
+            
+            if (hotspots.length === 0) {
+                alert('Bitte füge zuerst Hotspots hinzu!');
+                return;
+            }
+            
+            let code = '<!-- HOTSPOTS FÜR DÄMMERHAFEN -->\n';
+            code += '<!-- Erstellt mit Hotspot-Tool -->\n\n';
+            
+            hotspots.forEach((hotspot, index) => {
+                const label = hotspot.dataset.name;
+                const link = hotspot.dataset.link;
+                const top = hotspot.style.top;
+                const left = hotspot.style.left;
+                const width = hotspot.style.width;
+                const height = hotspot.style.height;
+                
+                code += `<!-- ${label} -->\n`;
+                code += `<a href="${link}" class="fullscreen-hotspot hotspot" style="top: ${top}; left: ${left}; width: ${width}; height: ${height};">\n`;
+                code += `    <span class="hotspot-label">${label}</span>\n`;
+                code += `</a>\n\n`;
+            });
+            
+            document.getElementById('codeOutput').textContent = code;
+        }
+        
+        // Bild hochladen
+        document.getElementById('imageUpload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    document.getElementById('cityImage').src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    </script>
+</body>
+</html>

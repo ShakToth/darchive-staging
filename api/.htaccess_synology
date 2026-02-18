@@ -1,0 +1,15 @@
+# Dämmerhafen 2.0 — API-Verzeichnis Konfiguration
+# Erlaubt nur PHP-Dateien, blockiert Verzeichnis-Listing
+
+Options -Indexes
+DirectoryIndex index.php
+
+# Nur PHP-Dateien erlauben
+<FilesMatch "\.php$">
+    Require all granted
+</FilesMatch>
+
+# Alles andere blockieren
+<FilesMatch "^(?!.*\.php$)">
+    Require all denied
+</FilesMatch>

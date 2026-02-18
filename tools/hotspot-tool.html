@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hotspot-Positionierung</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+            font-family: Arial, sans-serif;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #d4af37;
+            margin-bottom: 30px;
+        }
+        
+        .workspace {
+            position: relative;
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        #roomImage {
+            width: 100%;
+            display: block;
+            border: 2px solid #d4af37;
+        }
+        
+        .hotspot {
+            position: absolute;
+            border: 3px solid #ff6b6b;
+            background: rgba(255, 107, 107, 0.2);
+            cursor: move;
+            z-index: 10;
+            box-sizing: border-box;
+        }
+        
+        .hotspot:hover {
+            background: rgba(255, 107, 107, 0.4);
+            border-color: #ff0000;
+        }
+        
+        .hotspot-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 14px;
+            white-space: nowrap;
+            pointer-events: none;
+            color: #fff;
+        }
+        
+        .resize-handle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #d4af37;
+            border: 2px solid #000;
+            z-index: 11;
+        }
+        
+        .resize-se { bottom: -5px; right: -5px; cursor: se-resize; }
+        .resize-ne { top: -5px; right: -5px; cursor: ne-resize; }
+        .resize-sw { bottom: -5px; left: -5px; cursor: sw-resize; }
+        .resize-nw { top: -5px; left: -5px; cursor: nw-resize; }
+        
+        .controls {
+            margin-top: 30px;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 5px;
+        }
+        
+        .code-output {
+            background: #000;
+            padding: 20px;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            border: 2px solid #d4af37;
+        }
+        
+        button {
+            background: #d4af37;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        button:hover {
+            background: #c49f27;
+        }
+        
+        .info {
+            background: #1a3a5a;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #4a90e2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Hotspot-Positionierungs-Tool</h1>
+        
+        <div class="info">
+            <strong>Anleitung:</strong>
+            <ul>
+                <li>Lade dein Raumbild hoch (Bibliothek3.jpeg)</li>
+                <li>Ziehe die farbigen Hotspots an die richtige Position</li>
+                <li>Ziehe an den Ecken um die Größe anzupassen</li>
+                <li>Klicke "Code generieren" um den PHP-Code zu erhalten</li>
+            </ul>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <input type="file" id="imageUpload" accept="image/*" style="padding: 10px;">
+        </div>
+        
+        <div class="workspace" id="workspace">
+            <img id="roomImage" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1600' height='900'%3E%3Crect fill='%23333' width='1600' height='900'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' fill='%23666' font-size='24'%3ELade dein Bild hoch%3C/text%3E%3C/svg%3E" alt="Room">
+            
+            <!-- Hotspots -->
+            <div class="hotspot" id="hotspot-zeichnungen" data-name="Zeichnungen" style="top: 25%; left: 10%; width: 25%; height: 40%;">
+                <span class="hotspot-label">🖼️ Zeichnungen</span>
+                <div class="resize-handle resize-nw"></div>
+                <div class="resize-handle resize-ne"></div>
+                <div class="resize-handle resize-sw"></div>
+                <div class="resize-handle resize-se"></div>
+            </div>
+            
+            <div class="hotspot" id="hotspot-buecher" data-name="Bücher" style="top: 55%; left: 40%; width: 15%; height: 15%;">
+                <span class="hotspot-label">📚 Bücher</span>
+                <div class="resize-handle resize-nw"></div>
+                <div class="resize-handle resize-ne"></div>
+                <div class="resize-handle resize-sw"></div>
+                <div class="resize-handle resize-se"></div>
+            </div>
+            
+            <div class="hotspot" id="hotspot-index" data-name="Index" style="top: 62%; left: 56%; width: 12%; height: 13%;">
+                <span class="hotspot-label">📇 Index</span>
+                <div class="resize-handle resize-nw"></div>
+                <div class="resize-handle resize-ne"></div>
+                <div class="resize-handle resize-sw"></div>
+                <div class="resize-handle resize-se"></div>
+            </div>
+            
+            <div class="hotspot" id="hotspot-verboten" data-name="Verboten" style="top: 15%; left: 70%; width: 25%; height: 30%;">
+                <span class="hotspot-label" style="color: #ff5555;">⛔ Verboten</span>
+                <div class="resize-handle resize-nw"></div>
+                <div class="resize-handle resize-ne"></div>
+                <div class="resize-handle resize-sw"></div>
+                <div class="resize-handle resize-se"></div>
+            </div>
+            
+            <div class="hotspot" id="hotspot-archiv" data-name="Archiv" style="top: 48%; left: 70%; width: 25%; height: 34%;">
+                <span class="hotspot-label">📦 Archiv</span>
+                <div class="resize-handle resize-nw"></div>
+                <div class="resize-handle resize-ne"></div>
+                <div class="resize-handle resize-sw"></div>
+                <div class="resize-handle resize-se"></div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button onclick="generateCode()">📋 Code generieren</button>
+            <button onclick="resetPositions()">🔄 Positionen zurücksetzen</button>
+            
+            <div class="code-output" id="codeOutput">
+                Hier erscheint der PHP-Code nach Klick auf "Code generieren"
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Drag & Drop für Hotspots
+        let draggedElement = null;
+        let startX, startY, startLeft, startTop;
+        
+        // Resize
+        let resizing = false;
+        let resizeElement = null;
+        let resizeHandle = null;
+        let startWidth, startHeight;
+        
+        document.querySelectorAll('.hotspot').forEach(hotspot => {
+            hotspot.addEventListener('mousedown', startDrag);
+        });
+        
+        document.querySelectorAll('.resize-handle').forEach(handle => {
+            handle.addEventListener('mousedown', startResize);
+        });
+        
+        function startDrag(e) {
+            if (e.target.classList.contains('resize-handle')) return;
+            
+            draggedElement = e.currentTarget;
+            const rect = draggedElement.getBoundingClientRect();
+            const workspace = document.getElementById('workspace').getBoundingClientRect();
+            
+            startX = e.clientX;
+            startY = e.clientY;
+            startLeft = rect.left - workspace.left;
+            startTop = rect.top - workspace.top;
+            
+            document.addEventListener('mousemove', doDrag);
+            document.addEventListener('mouseup', stopDrag);
+            e.preventDefault();
+        }
+        
+        function doDrag(e) {
+            if (!draggedElement) return;
+            
+            const workspace = document.getElementById('workspace').getBoundingClientRect();
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+            
+            const newLeft = ((startLeft + deltaX) / workspace.width) * 100;
+            const newTop = ((startTop + deltaY) / workspace.height) * 100;
+            
+            draggedElement.style.left = Math.max(0, Math.min(100, newLeft)) + '%';
+            draggedElement.style.top = Math.max(0, Math.min(100, newTop)) + '%';
+        }
+        
+        function stopDrag() {
+            draggedElement = null;
+            document.removeEventListener('mousemove', doDrag);
+            document.removeEventListener('mouseup', stopDrag);
+        }
+        
+        function startResize(e) {
+            e.stopPropagation();
+            resizing = true;
+            resizeElement = e.target.parentElement;
+            resizeHandle = e.target.classList[1]; // resize-se, etc.
+            
+            const rect = resizeElement.getBoundingClientRect();
+            const workspace = document.getElementById('workspace').getBoundingClientRect();
+            
+            startX = e.clientX;
+            startY = e.clientY;
+            startWidth = rect.width;
+            startHeight = rect.height;
+            startLeft = rect.left - workspace.left;
+            startTop = rect.top - workspace.top;
+            
+            document.addEventListener('mousemove', doResize);
+            document.addEventListener('mouseup', stopResize);
+            e.preventDefault();
+        }
+        
+        function doResize(e) {
+            if (!resizing) return;
+            
+            const workspace = document.getElementById('workspace').getBoundingClientRect();
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+            
+            if (resizeHandle === 'resize-se') {
+                const newWidth = ((startWidth + deltaX) / workspace.width) * 100;
+                const newHeight = ((startHeight + deltaY) / workspace.height) * 100;
+                resizeElement.style.width = Math.max(5, newWidth) + '%';
+                resizeElement.style.height = Math.max(5, newHeight) + '%';
+            } else if (resizeHandle === 'resize-nw') {
+                const newWidth = ((startWidth - deltaX) / workspace.width) * 100;
+                const newHeight = ((startHeight - deltaY) / workspace.height) * 100;
+                const newLeft = ((startLeft + deltaX) / workspace.width) * 100;
+                const newTop = ((startTop + deltaY) / workspace.height) * 100;
+                
+                if (newWidth > 5 && newHeight > 5) {
+                    resizeElement.style.width = newWidth + '%';
+                    resizeElement.style.height = newHeight + '%';
+                    resizeElement.style.left = newLeft + '%';
+                    resizeElement.style.top = newTop + '%';
+                }
+            }
+        }
+        
+        function stopResize() {
+            resizing = false;
+            resizeElement = null;
+            document.removeEventListener('mousemove', doResize);
+            document.removeEventListener('mouseup', stopResize);
+        }
+        
+        function generateCode() {
+            let code = '<!-- HOTSPOTS NACH NEUEM DESIGN -->\n';
+            
+            const hotspots = [
+                { id: 'hotspot-zeichnungen', cat: 'images', icon: '🖼️', label: 'Zeichnungen' },
+                { id: 'hotspot-buecher', cat: 'books', icon: '📚', label: 'Bücher' },
+                { id: 'hotspot-index', cat: 'index', icon: '📇', label: 'Index' },
+                { id: 'hotspot-verboten', cat: 'forbidden', icon: '⛔', label: 'Verboten', special: true },
+                { id: 'hotspot-archiv', cat: 'archive', icon: '📦', label: 'Archiv' }
+            ];
+            
+            hotspots.forEach(h => {
+                const el = document.getElementById(h.id);
+                const top = el.style.top;
+                const left = el.style.left;
+                const width = el.style.width;
+                const height = el.style.height;
+                
+                code += `<!-- ${h.label} -->\n`;
+                code += `<a href="?cat=${h.cat}" class="fullscreen-hotspot hotspot" style="top: ${top}; left: ${left}; width: ${width}; height: ${height};">\n`;
+                
+                if (h.special) {
+                    code += `    <span class="hotspot-label" style="color: #ff5555;">${h.icon} ${h.label}</span>\n`;
+                } else {
+                    code += `    <span class="hotspot-label">${h.icon} ${h.label}</span>\n`;
+                }
+                
+                code += `</a>\n\n`;
+            });
+            
+            document.getElementById('codeOutput').textContent = code;
+        }
+        
+        function resetPositions() {
+            document.getElementById('hotspot-zeichnungen').style = 'top: 25%; left: 10%; width: 25%; height: 40%;';
+            document.getElementById('hotspot-buecher').style = 'top: 55%; left: 40%; width: 15%; height: 15%;';
+            document.getElementById('hotspot-index').style = 'top: 62%; left: 56%; width: 12%; height: 13%;';
+            document.getElementById('hotspot-verboten').style = 'top: 15%; left: 70%; width: 25%; height: 30%;';
+            document.getElementById('hotspot-archiv').style = 'top: 48%; left: 70%; width: 25%; height: 34%;';
+        }
+        
+        // Bild hochladen
+        document.getElementById('imageUpload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    document.getElementById('roomImage').src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    </script>
+</body>
+</html>

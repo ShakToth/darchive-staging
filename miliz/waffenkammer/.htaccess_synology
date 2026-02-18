@@ -1,0 +1,25 @@
+# SYNOLOGY WEB STATION KOMPATIBEL
+
+# Verhindert Directory Listing
+Options -Indexes
+
+# Verbietet direkten Zugriff auf sensible Dateien
+<FilesMatch "^(\.htaccess|functions\.php|test\.php|composer\.json|package\.json)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Sicherheits-Header (optional, kann bei Problemen auskommentiert werden)
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+# WICHTIG: Keine php_value Direktiven hier!
+# Synology Web Station nutzt PHP-FPM, daher:
+# → Gehe zu Web Station → PHP Settings → PHP 7.x/8.x
+# → Setze dort:
+#    upload_max_filesize = 320M
+#    post_max_size = 325M
+#    max_execution_time = 300

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>VERSION TEST</title>
+    <style>
+        body { 
+            font-family: Arial; 
+            background: #000; 
+            color: #0f0; 
+            padding: 50px;
+            font-size: 20px;
+        }
+        .box {
+            background: #1a1a1a;
+            border: 3px solid #0f0;
+            padding: 30px;
+            margin: 20px 0;
+            border-radius: 10px;
+        }
+        .ok { color: #0f0; }
+        .error { color: #f00; }
+    </style>
+</head>
+<body>
+    <h1 class="ok">✅ TEST: DATEI-UPLOAD ERFOLGREICH!</h1>
+    
+    <div class="box">
+        <h2>Diese Datei ist: VERSION_CHECK.html</h2>
+        <p class="ok">Wenn du diesen Text siehst, wurden die Dateien korrekt hochgeladen!</p>
+    </div>
+    
+    <div class="box">
+        <h2>NÄCHSTE SCHRITTE:</h2>
+        <ol>
+            <li>Du siehst diesen Text? → Upload funktioniert! ✅</li>
+            <li>Jetzt Browser-Cache leeren: <strong>STRG + F5</strong></li>
+            <li>Dann index.php aufrufen</li>
+        </ol>
+    </div>
+    
+    <div class="box">
+        <h2>WENN DU DAS HIER NICHT SIEHST:</h2>
+        <p class="error">→ Dateien wurden nicht hochgeladen!</p>
+        <p class="error">→ Prüfe FTP/Dateimanager</p>
+    </div>
+</body>
+</html>

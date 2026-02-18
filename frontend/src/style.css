@@ -1,0 +1,82 @@
+/* =================================================================
+   DÄMMERHAFEN 2.0 — Tailwind CSS Layer
+   Ergänzt das bestehende style.css — ersetzt es NICHT.
+   ================================================================= */
+
+@import "tailwindcss" prefix(tw);
+
+/* -----------------------------------------------------------------
+   Theme-Tokens: Bestehende CSS-Variablen für Tailwind verfügbar
+   Nutzung: class="tw-bg-wood tw-text-parchment tw-font-heading"
+   ----------------------------------------------------------------- */
+@theme {
+    /* Farben aus dem mittelalterlichen Theme */
+    --color-wood: #2c1e12;
+    --color-parchment: #f4e4bc;
+    --color-parchment-dark: #e3d1a2;
+    --color-ink: #3e2e1e;
+    --color-gold: #d4af37;
+    --color-red: #800000;
+    --color-shadow: rgba(0,0,0,0.4);
+
+    /* WoW Item Quality Farben */
+    --color-quality-common: #9d9d9d;
+    --color-quality-uncommon: #1eff00;
+    --color-quality-rare: #0070dd;
+    --color-quality-epic: #a335ee;
+    --color-quality-legendary: #ff8000;
+
+    /* Schriftarten */
+    --font-heading: 'MedievalSharp', cursive;
+    --font-body: 'Crimson Text', serif;
+    --font-elegant: 'Cinzel', serif;
+}
+
+/* -----------------------------------------------------------------
+   Basis-Styles für Vue-Inseln
+   ----------------------------------------------------------------- */
+
+/* Transition-Utilities für Vue-Komponenten */
+.dh-fade-enter-active,
+.dh-fade-leave-active {
+    transition: opacity 0.3s ease;
+}
+
+.dh-fade-enter-from,
+.dh-fade-leave-to {
+    opacity: 0;
+}
+
+.dh-slide-enter-active,
+.dh-slide-leave-active {
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.dh-slide-enter-from {
+    transform: translateY(-20px);
+    opacity: 0;
+}
+
+.dh-slide-leave-to {
+    transform: translateY(-20px);
+    opacity: 0;
+}
+
+/* Toast-Animationen */
+.dh-toast-enter-active {
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+}
+
+.dh-toast-leave-active {
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.dh-toast-enter-from {
+    transform: translateX(100%);
+    opacity: 0;
+}
+
+.dh-toast-leave-to {
+    transform: translateX(100%);
+    opacity: 0;
+}

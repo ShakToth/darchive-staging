@@ -1,0 +1,368 @@
+<?php
+// SICHERHEITS-HEADER
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
+header('X-XSS-Protection: 1; mode=block');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+
+require_once 'functions.php';
+
+$message = null;
+
+// --- ACTIONS ---
+if (isset($_POST['login_pw']) && isset($_POST['csrf_token'])) {
+    if (verifyCSRFToken($_POST['csrf_token'])) {
+        $result = login($_POST['login_pw']);
+        if ($result['success']) {
+            header("Location: index.php");
+            exit;
+        } else {
+            $message = ['type' => 'error', 'text' => $result['message']];
+        }
+    } else {
+        $message = ['type' => 'error', 'text' => '🚫 Ungültige Anfrage (CSRF)!'];
+    }
+}
+
+if (isset($_GET['action']) && $_GET['action'] === 'logout') {
+    logout();
+    header("Location: index.php");
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_file']) && isset($_POST['delete_cat']) && isset($_POST['csrf_token'])) {
+    if (verifyCSRFToken($_POST['csrf_token']) && isAdmin()) {
+        $category = ($_POST['delete_cat'] === 'forbidden') ? 'forbidden' : 'normal';
+        $message = handleDelete($_POST['delete_file'], $category);
+    } else {
+        $message = ['type' => 'error', 'text' => '🚫 Ungültige Anfrage!'];
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file']) && isset($_POST['csrf_token'])) {
+    if (verifyCSRFToken($_POST['csrf_token'])) {
+        $target = $_POST['target_cat'] ?? 'normal';
+        $message = handleUpload($_FILES['file'], $target);
+    } else {
+        $message = ['type' => 'error', 'text' => '🚫 Ungültige Anfrage (CSRF)!'];
+    }
+}
+
+// --- VIEW LOGIK ---
+$view = isset($_GET['cat']) ? $_GET['cat'] : 'room';
+$query = isset($_GET['q']) ? trim($_GET['q']) : '';
+$files = [];
+
+if ($query !== '' && !isset($_GET['cat'])) {
+    $view = 'search';
+    $files = getAllFiles($query);
+} elseif ($view === 'forbidden') {
+    $files = getFiles('forbidden', $query);
+} elseif ($view === 'index') {
+    $files = getAllFiles('');
+    usort($files, function($a, $b) {
+        return strcasecmp($a['name'], $b['name']);
+    });
+} elseif ($view !== 'room') {
+    $allFiles = getFiles('normal', $query);
+    foreach ($allFiles as $file) {
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        $is_img = in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp']);
+        $is_book = in_array($ext, ['pdf', 'txt', 'md', 'doc', 'docx', 'epub']);
+        $is_admin = in_array($ext, ['xls', 'xlsx', 'csv']);
+        
+        if ($view === 'images' && $is_img) {
+            $file['category'] = 'normal';
+            $files[] = $file;
+        } elseif ($view === 'books' && $is_book) {
+            $file['category'] = 'normal';
+            $files[] = $file;
+        } elseif ($view === 'admin' && $is_admin) {
+            $file['category'] = 'normal';
+            $files[] = $file;
+        } elseif ($view === 'archive' && !$is_img && !$is_book && !$is_admin) {
+            $file['category'] = 'normal';
+            $files[] = $file;
+        }
+    }
+}
+
+$csrfToken = generateCSRFToken();
+?>
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Die Bibliothek</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="<?php echo ($view === 'room') ? 'room-mode' : ''; ?>">
+
+<?php if ($view === 'room'): ?>
+    <!-- NEUE TOP NAVIGATION -->
+    <div class="top-nav">
+        <div class="nav-left">
+            <!-- Optional: Nur Wappen-Icon ohne Text -->
+			<img src="wappen.png" alt="" style="height: 70px; opacity: 1.0;">
+			<a href="index.php" class="nav-link">Dämmerhafen </a>
+        </div>
+        
+        <div class="nav-center">
+
+            <a href="index.php?view=library" class="nav-link">Die Bibliothek</a>
+            <a href="miliz.php" class="nav-link">Die Miliz</a>
+            <a href="verwaltung.php" class="nav-link">Die Verwaltung</a>
+            <a href="aushaenge.php" class="nav-link">Aushänge</a>
+        </div>
+        
+        <div class="nav-right">
+            <?php if (isAdmin()): ?>
+                <span class="admin-badge">🔑 Meister</span>
+                <a href="?action=logout" class="btn-logout">Abmelden</a>
+            <?php else: ?>
+                <form method="post" style="margin:0; display:flex; gap:10px; align-items:center;">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
+                    <input type="password" name="login_pw" placeholder="Zauberwort..." class="nav-input">
+                    <button type="submit" class="nav-btn">Login</button>
+                </form>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <img src="room.jpg" alt="Room" class="fullscreen-bg">
+
+    <!-- HOTSPOTS NACH NEUEM DESIGN -->
+	
+    <!-- Zeichnungen -->
+    <a href="?cat=images" class="fullscreen-hotspot hotspot" style="top: 33.083%; left: 28.0714%; width: 17%; height: 29.1552%;">
+        <span class="hotspot-label">🖼️ Zeichnungen</span>
+    </a>
+    
+    <!-- Bücher -->
+    <a href="?cat=books" class="fullscreen-hotspot hotspot" style="top: 43.4719%; left: 50.0714%; width: 11.5714%; height: 17.3643%;">
+        <span class="hotspot-label">📚 Bücher</span>
+    </a>
+    
+    <!-- Index -->
+    <a href="?cat=index" class="fullscreen-hotspot hotspot" style="top: 49.458%; left: 62.0714%; width: 5.35714%; height: 22.2894%;">
+        <span class="hotspot-label">📇 Index</span>
+    </a>
+    
+    <!-- Verboten -->
+    <a href="?cat=forbidden" class="fullscreen-hotspot hotspot" style="top: 24.909%; left: 69.7846%; width: 21.0714%; height: 26.4516%;">
+        <span class="hotspot-label" style="color: #ff5555;">⛔ Verboten</span>
+    </a>
+    
+    <!-- Archiv -->
+    <a href="?cat=archive" class="fullscreen-hotspot hotspot" style="top: 51.1818%; left: 68.1429%; width: 18.4286%; height: 20.3151%;">
+        <span class="hotspot-label">📦 Archiv</span>
+    </a>
+
+    <?php if ($message): ?>
+        <div style="position:fixed; top:100px; left:50%; transform:translateX(-50%); z-index:200;" class="msg <?php echo $message['type']; ?>">
+            <?php echo $message['text']; ?>
+        </div>
+    <?php endif; ?>
+
+<?php else: ?>
+    <div class="container <?php echo ($view === 'forbidden' || (isset($files[0]) && $files[0]['category'] === 'forbidden')) ? 'container-forbidden' : ''; ?>">
+        <header>
+            <h1>
+                <?php 
+                    if ($view === 'books') echo '📚 Die Bücher';
+                    elseif ($view === 'images') echo '🖼️ Die Zeichnungen';
+                    elseif ($view === 'admin') echo '📋 Verwaltung';
+                    elseif ($view === 'archive') echo '📦 Das Archiv';
+                    elseif ($view === 'forbidden') echo '⛔ Verbotene Schriften';
+                    elseif ($view === 'index') echo '📇 Index (Alle Dateien)';
+                    else echo '🔍 Suche in allen Bereichen';
+                ?>
+            </h1>
+            <a href="index.php" class="back-btn">⌂ Raum verlassen</a>
+        </header>
+
+        <?php if ($message): ?>
+            <div class="msg <?php echo $message['type']; ?>">
+                <?php echo $message['text']; ?>
+            </div>
+        <?php endif; ?>
+
+        <div class="controls">
+            <?php if (isAdmin()): ?>
+                <form id="uploadForm" method="post" enctype="multipart/form-data" style="flex: 1; min-width: 300px;">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
+                    <input type="file" name="file" id="fileInput" required>
+                    <input type="hidden" name="target_cat" id="targetCat" value="<?php echo ($view === 'forbidden') ? 'forbidden' : 'normal'; ?>">
+                    <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                        <span class="upload-zone-icon">📜</span>
+                        <div class="upload-zone-text">
+                            Schriftrolle hier ablegen<br>
+                            <small>oder klicken zum Auswählen</small>
+                        </div>
+                    </div>
+                </form>
+            <?php endif; ?>
+
+            <form method="get" style="flex:1; text-align:right;">
+                <input type="text" name="q" placeholder="🔍 Alle Bereiche durchsuchen..." value="<?php echo htmlspecialchars($query); ?>" style="width: 70%;">
+                <button type="submit">Suchen</button>
+            </form>
+        </div>
+
+        <div class="grid">
+            <?php if (empty($files)): ?>
+                <p style="text-align:center; width:100%; color: #888;">Hier liegt nichts...</p>
+            <?php else: ?>
+                <?php foreach ($files as $file): ?>
+                    <?php 
+                    $isForbidden = ($file['category'] ?? '') === 'forbidden';
+                    $quality = $file['quality'] ?? 'common';
+                    $qualityClass = 'quality-' . $quality;
+                    $isPdf = (strtolower(pathinfo($file['name'], PATHINFO_EXTENSION)) === 'pdf');
+                    ?>
+                    
+                    <div class="card-wrapper">
+                        <?php if ($file['is_image']): ?>
+                            <a href="javascript:void(0);" onclick="openLightbox('<?php echo $file['path']; ?>', 'image')" class="card <?php echo $qualityClass; ?> <?php echo $isForbidden ? 'card-forbidden' : ''; ?>">
+                        <?php elseif ($isPdf): ?>
+                            <a href="javascript:void(0);" onclick="openLightbox('<?php echo $file['path']; ?>', 'pdf')" class="card <?php echo $qualityClass; ?> <?php echo $isForbidden ? 'card-forbidden' : ''; ?>">
+                        <?php else: ?>
+                            <a href="<?php echo $file['path']; ?>" class="card <?php echo $qualityClass; ?> <?php echo $isForbidden ? 'card-forbidden' : ''; ?>" target="_blank">
+                        <?php endif; ?>
+                            <div class="preview-box">
+                                <?php if ($file['is_image']): ?>
+                                    <img src="<?php echo $file['path']; ?>" loading="lazy" alt="<?php echo htmlspecialchars($file['name']); ?>">
+                                <?php else: ?>
+                                    <span class="icon"><?php echo $file['icon']; ?></span>
+                                <?php endif; ?>
+                            </div>
+                            <div class="file-info">
+                                <span class="filename"><?php echo htmlspecialchars($file['name']); ?></span>
+                                <span class="file-meta">
+                                    <?php echo formatFileSize($file['size']); ?>
+                                    <?php if (isset($file['category_label'])): ?>
+                                        <span class="category-badge <?php echo $isForbidden ? 'badge-forbidden' : ''; ?>">
+                                            <?php echo $file['category_label']; ?>
+                                        </span>
+                                    <?php endif; ?>
+                                </span>
+                            </div>
+                        </a>
+
+                        <div class="wow-tooltip">
+                            <div class="tooltip-header">
+                                <?php echo htmlspecialchars($file['name']); ?>
+                            </div>
+                            <div class="tooltip-body">
+                                <div>📊 Größe: <?php echo formatFileSize($file['size']); ?></div>
+                                <div>📅 Archiviert: <?php echo formatDate($file['modified']); ?></div>
+                                <?php if (isset($file['category_label'])): ?>
+                                    <div>📂 Kategorie: <?php echo strip_tags($file['category_label']); ?></div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                        <?php if (isAdmin()): ?>
+                            <form method="post" style="margin: 0;" onsubmit="return confirm('Endgültig vernichten?');">
+                                <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
+                                <input type="hidden" name="delete_file" value="<?php echo htmlspecialchars($file['name']); ?>">
+                                <input type="hidden" name="delete_cat" value="<?php echo $file['category'] ?? $view; ?>">
+                                <button type="submit" class="delete-btn" title="Verbrennen">🔥</button>
+                            </form>
+                        <?php endif; ?>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+    </div>
+<?php endif; ?>
+
+<div id="myLightbox" class="lightbox" onclick="if(event.target === this) closeLightbox()">
+  <span class="close-lightbox" onclick="closeLightbox()">&times;</span>
+  <img class="lightbox-content" id="lightboxImage" alt="Vorschau" style="display:none;">
+  <iframe class="lightbox-content" id="lightboxPdf" style="display:none; width:90vw; height:90vh; border:none;"></iframe>
+</div>
+
+<script>
+function openLightbox(url, type) {
+    var modal = document.getElementById("myLightbox");
+    var img = document.getElementById("lightboxImage");
+    var pdf = document.getElementById("lightboxPdf");
+    
+    modal.style.display = "block";
+    
+    if (type === 'pdf') {
+        img.style.display = "none";
+        pdf.style.display = "block";
+        pdf.src = url;
+    } else {
+        pdf.style.display = "none";
+        img.style.display = "block";
+        img.src = url;
+    }
+}
+
+function closeLightbox() {
+    document.getElementById("myLightbox").style.display = "none";
+    document.getElementById("lightboxPdf").src = "";
+}
+
+document.addEventListener('keydown', function(event) {
+    if (event.key === "Escape") closeLightbox();
+});
+
+<?php if (isAdmin()): ?>
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const uploadForm = document.getElementById('uploadForm');
+
+if (dropZone) {
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, unhighlight, false);
+    });
+
+    dropZone.addEventListener('drop', handleDrop, false);
+
+    fileInput.addEventListener('change', function() {
+        if (this.files.length > 0) {
+            uploadForm.submit();
+        }
+    });
+}
+
+function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+}
+
+function highlight(e) {
+    dropZone.classList.add('dragover');
+}
+
+function unhighlight(e) {
+    dropZone.classList.remove('dragover');
+}
+
+function handleDrop(e) {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    if (files.length > 0) {
+        fileInput.files = files;
+        uploadForm.submit();
+    }
+}
+<?php endif; ?>
+</script>
+
+</body>
+</html>
