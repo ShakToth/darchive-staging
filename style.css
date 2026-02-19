@@ -974,8 +974,8 @@ header {
 .rp-card__info {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 15px 10px 15px 25px;
+    gap: 6px;
+    padding: 10px 8px 6px 18px;
     flex-grow: 1;
 }
 
@@ -1585,14 +1585,16 @@ button[type="submit"]:not([class*="rp-btn"]):not([class*="miliz-nav"]):not([clas
     display: none;
     position: absolute;
     z-index: var(--z-tooltip-wow);
-    background: linear-gradient(to bottom, #1a1a1a 0%, #0d0d0d 100%);
+    background: linear-gradient(to bottom, #1c1410 0%, #0d0a06 100%);
     border: 2px solid var(--accent-gold);
-    padding: 12px;
+    padding: 12px 14px;
     border-radius: 4px;
-    min-width: 200px;
-    pointer-events: none;
+    min-width: 220px;
+    max-width: 300px;
+    /* pointer-events auto: Formular im Tooltip muss klickbar sein */
+    pointer-events: auto;
     font-family: var(--font-body);
-    box-shadow: 0 0 20px rgba(0,0,0,0.9);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.95), 0 0 0 1px rgba(212,175,55,0.1);
     color: var(--bg-parchment);
     text-shadow: 1px 1px 2px #000000;
 }
@@ -1603,22 +1605,113 @@ button[type="submit"]:not([class*="rp-btn"]):not([class*="miliz-nav"]):not([clas
     left: 105%;
 }
 
+/* Tooltip links anzeigen wenn am rechten Rand */
+@media (max-width: 900px) {
+    .rp-card-wrapper:hover .rp-tooltip {
+        left: auto;
+        right: 105%;
+    }
+}
+
 .rp-tooltip__header {
     font-family: var(--font-elegant);
     font-size: 1em;
     font-weight: bold;
     margin-bottom: 8px;
     padding-bottom: 6px;
-    border-bottom: 1px solid rgba(255,255,255,0.2);
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+    word-break: break-word;
 }
 
 .rp-tooltip__body {
-    font-size: 0.85em;
+    font-size: 0.83em;
     color: #ffd700;
+    line-height: 1.5;
+    /* Tooltip scrollt bei vielen Einträgen */
+    max-height: 340px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(212,175,55,0.3) transparent;
+}
+
+.rp-tooltip__body::-webkit-scrollbar {
+    width: 4px;
+}
+.rp-tooltip__body::-webkit-scrollbar-track {
+    background: transparent;
+}
+.rp-tooltip__body::-webkit-scrollbar-thumb {
+    background: rgba(212,175,55,0.35);
+    border-radius: 2px;
 }
 
 .rp-tooltip__body div {
-    margin: 4px 0;
+    margin: 3px 0;
+}
+
+/* Verlauf-Log im Tooltip */
+.rp-tooltip__log {
+    max-height: 120px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(212,175,55,0.2) transparent;
+}
+
+.rp-tooltip__log-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.82em;
+    margin: 2px 0;
+    padding: 1px 0;
+}
+
+.rp-tooltip__log-row--active {
+    color: rgba(255,210,100,0.9);
+}
+
+.rp-tooltip__log-row--returned {
+    color: rgba(150,150,150,0.7);
+    text-decoration: line-through;
+    text-decoration-color: rgba(150,150,150,0.4);
+}
+
+.rp-tooltip__log-date {
+    opacity: 0.55;
+    white-space: nowrap;
+    font-size: 0.9em;
+}
+
+/* Exemplare-Editor im Tooltip */
+.rp-tooltip__kopien-input {
+    width: 36px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(212,175,55,0.3);
+    border-radius: 2px;
+    color: #f4e4bc;
+    font-size: 0.65em;
+    padding: 1px 3px;
+    text-align: center;
+}
+
+.rp-tooltip__kopien-btn {
+    -webkit-appearance: none;
+    appearance: none;
+    background: rgba(212,175,55,0.15);
+    border: 1px solid rgba(212,175,55,0.3);
+    border-radius: 2px;
+    color: var(--accent-gold);
+    font-size: 0.65em;
+    padding: 1px 4px;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.rp-tooltip__kopien-btn:hover {
+    background: rgba(212,175,55,0.3);
 }
 
 .rp-tooltip__footer {
@@ -2480,6 +2573,7 @@ button:hover, .nav-btn:hover {
    ================================================================= */
 
 
+/* ── Qualitäts-Dropdown: oben rechts, nur bei Hover ── */
 .rp-card__actions {
     position: absolute;
     top: 6px;
@@ -2489,66 +2583,316 @@ button:hover, .nav-btn:hover {
     opacity: 0;
     transition: opacity 0.2s;
     z-index: 12;
+    pointer-events: none;
 }
 
 .rp-card-wrapper:hover .rp-card__actions {
     opacity: 1;
-}
-
-.rp-card__quality-select,
-.rp-card__actions .rp-btn--small {
-    background: rgba(26, 17, 9, 0.85);
-    color: #f4e4bc;
-    border: 1px solid rgba(212, 175, 55, 0.35);
-    border-radius: 4px;
-    font-size: 0.8rem;
-    line-height: 1;
-    padding: 4px 6px;
-    min-height: 28px;
+    pointer-events: auto;
 }
 
 .rp-card__quality-select {
-    min-width: 150px;
-    max-width: 180px;
+    background: rgba(20, 12, 5, 0.92);
+    color: #f4e4bc;
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    line-height: 1;
+    padding: 3px 5px;
+    min-height: 24px;
+    min-width: 130px;
+    max-width: 160px;
+    cursor: pointer;
 }
 
-.rp-card__borrow-form .rp-btn--small {
+/* ── Aktions-Zeile in der Karte (unten im Info-Bereich) ── */
+.rp-card__action-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    margin-top: auto;
+    padding-top: 5px;
+    pointer-events: auto;
+}
+
+/* Rechte Spalte: Exemplare-Zahl + Burn-Button gestapelt */
+.rp-card__action-right {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+}
+
+/* Pill-Buttons: exakte Pixel-Größe, grid-Zentrierung */
+.rp-card__pill-btn {
+    -webkit-appearance: none;
+    appearance: none;
+    display: grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
+    font-size: 9px;
+    line-height: 1;
+    border-radius: 3px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.4);
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+.rp-card__pill-btn:hover {
+    transform: scale(1.2);
+    background: rgba(255,255,255,0.15);
+}
+/* Emoji-Span: feste Größe und kein Spacing */
+.rp-card__pill-btn span {
+    display: block;
+    width: 10px;
+    height: 10px;
+    font-size: 9px;
+    line-height: 10px;
+    text-align: center;
+    font-style: normal;
+    font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+    user-select: none;
+}
+.rp-card__pill-btn--gold  { border-color: rgba(212,175,55,0.4); color: rgba(212,175,55,0.9); }
+.rp-card__pill-btn--green { border-color: rgba(30,200,100,0.4); color: rgba(80,220,140,0.9); }
+.rp-card__pill-btn--red   { border-color: rgba(200,50,50,0.4);  color: rgba(255,120,120,0.9); }
+
+/* Exemplare-Mini-Label über dem Burn-Button */
+.rp-card__kopien-label {
+    font-size: 8px;
+    line-height: 1;
+    color: rgba(212,175,55,0.6);
     white-space: nowrap;
-    font-size: 0.95rem;
+    text-align: center;
+    pointer-events: none;
 }
 
+/* ----  Lightbox Text-Container (globale Lightbox, Typ 'text') ---- */
 .lightbox-text {
-    background: rgba(10, 10, 14, 0.96);
+    background: rgba(10, 10, 14, 0.97);
     border: 1px solid rgba(212, 175, 55, 0.35);
     border-radius: 8px;
-    padding: 20px;
+    padding: 24px 28px;
     color: #f5e8c8;
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.7;
 }
 
+/* ----  Library Viewer Shell ---- */
+.library-viewer {
+    color: #f5e8c8;
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.75;
+}
+
+/* Titelzeile für normale Viewer */
 .library-viewer__title {
-    margin: 0 0 12px;
+    margin: 0 0 14px;
     color: var(--accent-gold);
     font-family: var(--font-heading);
-    font-size: 1.3rem;
+    font-size: 1.25rem;
     border-bottom: 1px solid rgba(212, 175, 55, 0.35);
     padding-bottom: 8px;
 }
 
+/* Titelzeile für HTML-Volldokument-Viewer */
+.library-viewer__title-bar {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid rgba(212, 175, 55, 0.3);
+    padding-bottom: 8px;
+}
+.library-viewer__hint {
+    font-size: 0.78rem;
+    opacity: 0.6;
+    font-style: italic;
+}
+
+/* HTML-Volldokument iframe */
+.library-viewer__html-frame {
+    display: block;
+    width: 100%;
+    height: 75vh;
+    border: none;
+    border-radius: 4px;
+    background: #fff;
+}
+
 .library-viewer__content {
-    line-height: 1.6;
     overflow-wrap: anywhere;
 }
 
-.library-viewer__content pre {
-    white-space: pre-wrap;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(212, 175, 55, 0.2);
-    border-radius: 6px;
-    padding: 10px;
+.library-viewer__loading {
+    text-align: center;
+    opacity: 0.75;
+    padding: 30px 0;
 }
 
-.library-viewer__loading {
-    opacity: 0.85;
+/* ----  Markdown-Elemente innerhalb .library-viewer__content ---- */
+
+/* Überschriften */
+.library-viewer__content .md-h1,
+.library-viewer__content .md-h2,
+.library-viewer__content .md-h3,
+.library-viewer__content .md-h4,
+.library-viewer__content .md-h5,
+.library-viewer__content .md-h6 {
+    font-family: var(--font-heading);
+    color: var(--accent-gold);
+    margin: 1.4em 0 0.5em;
+    line-height: 1.25;
+}
+.library-viewer__content .md-h1 { font-size: 1.8rem; border-bottom: 1px solid rgba(212,175,55,.3); padding-bottom: 6px; }
+.library-viewer__content .md-h2 { font-size: 1.5rem; border-bottom: 1px solid rgba(212,175,55,.2); padding-bottom: 4px; }
+.library-viewer__content .md-h3 { font-size: 1.25rem; }
+.library-viewer__content .md-h4 { font-size: 1.1rem; }
+.library-viewer__content .md-h5,
+.library-viewer__content .md-h6 { font-size: 1rem; opacity: 0.85; }
+
+/* Absätze */
+.library-viewer__content .md-p {
+    margin: 0.75em 0;
+}
+
+/* Blockquote */
+.library-viewer__content .md-blockquote {
+    border-left: 3px solid rgba(212,175,55,.5);
+    margin: 1em 0;
+    padding: 6px 16px;
+    background: rgba(212,175,55,.05);
+    font-style: italic;
+    color: rgba(245,232,200,.85);
+}
+
+/* HR */
+.library-viewer__content .md-hr {
+    border: none;
+    border-top: 1px solid rgba(212,175,55,.35);
+    margin: 1.5em 0;
+}
+
+/* Listen */
+.library-viewer__content .md-ul,
+.library-viewer__content .md-ol {
+    margin: 0.6em 0 0.6em 1.6em;
+    padding: 0;
+}
+.library-viewer__content .md-li {
+    margin: 0.3em 0;
+}
+.library-viewer__content .md-li input[type="checkbox"] {
+    accent-color: var(--accent-gold);
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+/* Tabellen */
+.library-viewer__content .md-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+    font-size: 0.95em;
+}
+.library-viewer__content .md-table th,
+.library-viewer__content .md-table td {
+    border: 1px solid rgba(212,175,55,.25);
+    padding: 7px 12px;
+    text-align: left;
+}
+.library-viewer__content .md-table th {
+    background: rgba(212,175,55,.12);
+    color: var(--accent-gold);
+    font-family: var(--font-heading);
+    font-weight: 600;
+}
+.library-viewer__content .md-table tr:nth-child(even) td {
+    background: rgba(255,255,255,.04);
+}
+
+/* Codeblöcke */
+.library-viewer__content .md-code-block {
+    position: relative;
+    background: rgba(0,0,0,.45);
+    border: 1px solid rgba(212,175,55,.2);
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin: 1em 0;
+    overflow-x: auto;
+    white-space: pre;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.875em;
+}
+.library-viewer__content .md-code-lang {
+    display: block;
+    font-size: 0.7em;
+    color: rgba(212,175,55,.6);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+    font-family: var(--font-body);
+}
+
+/* Inline Code */
+.library-viewer__content .md-inline-code {
+    background: rgba(0,0,0,.35);
+    border: 1px solid rgba(212,175,55,.2);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.88em;
+    color: #e8d4a0;
+}
+
+/* Links */
+.library-viewer__content .md-link {
+    color: var(--accent-gold);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+.library-viewer__content .md-link:hover {
+    color: #ffe066;
+}
+
+/* Bilder */
+.library-viewer__content .md-img {
+    max-width: 100%;
+    border-radius: 4px;
+    margin: 0.5em 0;
+}
+
+/* Durchgestrichen */
+.library-viewer__content del {
+    opacity: 0.6;
+    text-decoration: line-through;
+}
+
+/* Fußnoten */
+.library-viewer__content .md-footnotes {
+    margin-top: 2em;
+    border-top: 1px solid rgba(212,175,55,.25);
+    padding-top: 0.75em;
+    font-size: 0.85em;
+    opacity: 0.8;
+}
+.library-viewer__content .md-footnotes ol {
+    margin: 0;
+    padding-left: 1.4em;
+}
+.library-viewer__content .md-fn-ref a,
+.library-viewer__content .md-footnotes a {
+    color: var(--accent-gold);
 }
 
 /* =================================================================
@@ -2611,30 +2955,52 @@ button:hover, .nav-btn:hover {
 
 .rp-book-cover__title {
     font-family: var(--font-elegant);
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     text-align: center;
     max-width: 90%;
-    white-space: nowrap;
+    /* Mehrzeilig statt abschneiden */
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    hyphens: auto;
+    line-height: 1.3;
+    letter-spacing: 0.3px;
+    max-height: 4.2em;   /* ~3 Zeilen */
     overflow: hidden;
-    text-overflow: ellipsis;
-    letter-spacing: 0.5px;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
 }
 
 .rp-book-cover__ext {
-    font-size: 0.7rem;
+    position: relative;
+    z-index: 2;           /* über dem Canvas */
+    font-size: 0.65rem;
     text-transform: uppercase;
     letter-spacing: 2px;
-    opacity: 0.7;
-    margin-top: 5px;
+    opacity: 0.75;
+    margin-top: auto;     /* ans untere Ende drücken */
+    padding-bottom: 6px;
+    color: var(--accent, rgba(212, 175, 55, 0.8));
+    text-shadow: 0 1px 3px rgba(0,0,0,0.9);
 }
 
 /* Quality-spezifische Cover-Farben */
 
 
-.rp-book-cover--pdf { border-left: 2px solid rgba(180, 40, 40, 0.45); }
-.rp-book-cover--txt, .rp-book-cover--md { border-left: 2px solid rgba(180, 150, 80, 0.45); }
-.rp-book-cover--doc, .rp-book-cover--docx { border-left: 2px solid rgba(80, 120, 180, 0.45); }
-.rp-book-cover--epub { border-left: 2px solid rgba(80, 180, 120, 0.45); }
+.rp-book-cover--pdf  { border-left: 3px solid rgba(180,40,40,0.6); }
+.rp-book-cover--txt,
+.rp-book-cover--md   { border-left: 3px solid rgba(180,150,80,0.6); }
+.rp-book-cover--doc,
+.rp-book-cover--docx { border-left: 3px solid rgba(80,120,180,0.6); }
+.rp-book-cover--epub { border-left: 3px solid rgba(80,180,120,0.6); }
+.rp-book-cover--html,
+.rp-book-cover--htm  { border-left: 3px solid rgba(100,160,220,0.6); }
+
+/* Qualitäts-Akzent-Glow oben (via --accent Variable aus PHP) */
+.rp-book-cover {
+    border-top: 2px solid var(--accent, rgba(212,175,55,0.3));
+}
 
 .quality-common .rp-book-cover { background-color: #4a4a4a; }
 .quality-uncommon .rp-book-cover { background-color: #2a4a2a; }
