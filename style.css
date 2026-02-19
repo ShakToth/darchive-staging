@@ -655,7 +655,7 @@ header {
 }
 
 .rp-grid--artifacts {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
     gap: 30px;
 }
 
@@ -885,7 +885,7 @@ header {
 }
 
 .rp-card--artifact:hover {
-    transform: translateY(-8px) rotateY(-3deg);
+    transform: none;
     box-shadow: inset 15px 0 10px -5px rgba(0,0,0,0.7), 0 20px 40px rgba(0,0,0,0.5);
 }
 
@@ -1077,10 +1077,12 @@ header {
     perspective: 1000px;
     position: relative;
     z-index: 1;
+    transition: transform 0.3s cubic-bezier(.17,.67,.83,.67);
 }
 
 .rp-card-wrapper:hover {
     z-index: var(--z-tooltip-wow);
+    transform: translateY(-8px) rotateY(-3deg);
 }
 
 /* =================================================================
@@ -2480,41 +2482,117 @@ button:hover, .nav-btn:hover {
    ================================================================= */
 
 
+/* Merge-Konflikt-Auflösung: kompakte 2-Spalten-Actionbar innerhalb der Karte */
 .rp-card__actions {
     position: absolute;
-    top: 6px;
-    right: 6px;
-    display: flex;
-    gap: 4px;
-    opacity: 0;
-    transition: opacity 0.2s;
+    left: 10px;
+    bottom: 10px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    opacity: 1;
+    transform: none;
+    transition: opacity 0.2s ease, transform 0.2s ease, filter 0.2s ease;
     z-index: 12;
+    align-items: stretch;
+    max-width: calc(100% - 20px);
+    width: calc(100% - 20px);
 }
 
 .rp-card-wrapper:hover .rp-card__actions {
     opacity: 1;
+    filter: brightness(1.05);
 }
 
-.rp-card__quality-select,
-.rp-card__actions .rp-btn--small {
-    background: rgba(26, 17, 9, 0.85);
-    color: #f4e4bc;
-    border: 1px solid rgba(212, 175, 55, 0.35);
-    border-radius: 4px;
-    font-size: 0.8rem;
-    line-height: 1;
-    padding: 4px 6px;
-    min-height: 28px;
+.rp-card__action-form {
+    margin: 0;
+    display: flex;
+}
+
+.rp-card__action-control,
+.rp-card__action-btn {
+    background: linear-gradient(180deg, rgba(37, 28, 18, 0.96), rgba(20, 14, 9, 0.95));
+    color: #f6e7bc;
+    border: 1px solid rgba(212, 175, 55, 0.55);
+    border-radius: 10px;
+    min-height: 36px;
+    box-shadow: 0 5px 16px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(244, 222, 164, 0.25);
+}
+
+.rp-card__action-control {
+    width: 100%;
 }
 
 .rp-card__quality-select {
-    min-width: 150px;
-    max-width: 180px;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    font-size: 0.76rem;
+    font-family: var(--font-body);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    line-height: 1;
+    padding: 7px 8px;
+    grid-column: 1 / -1;
+}
+
+.rp-card__action-btn {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 8px;
+    line-height: 1;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-family: var(--font-heading);
+    border-radius: 8px;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+    width: 100%;
+}
+
+.rp-card__action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 239, 190, 0.3);
+}
+
+.rp-card__action-btn--borrow {
+    border-color: rgba(122, 209, 255, 0.5);
+    color: #deefff;
+    background: linear-gradient(180deg, rgba(41, 62, 90, 0.97), rgba(21, 32, 49, 0.95));
+}
+
+.rp-card__action-btn--delete {
+    border-color: rgba(255, 134, 88, 0.58);
+    color: #ffd9c8;
+    background: linear-gradient(180deg, rgba(121, 38, 30, 0.97), rgba(66, 15, 12, 0.96));
+    padding-inline: 10px;
+}
+
+.rp-card__action-icon {
+    font-size: 0.85rem;
 }
 
 .rp-card__borrow-form .rp-btn--small {
     white-space: nowrap;
-    font-size: 0.95rem;
+}
+
+@media (max-width: 900px) {
+    .rp-card__actions {
+        opacity: 1;
+        transform: none;
+    }
+
+    .rp-card__quality-select {
+        min-width: 0;
+        max-width: none;
+    }
+
+    .rp-card__action-btn {
+        font-size: 0.65rem;
+        padding: 6px 7px;
+    }
 }
 
 .lightbox-text {
