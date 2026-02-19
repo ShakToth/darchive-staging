@@ -57,22 +57,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['set_quality'], $_POST
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_read'], $_POST['csrf_token'])) {
-    if (verifyCSRFToken($_POST['csrf_token'])) {
-        $readFile   = basename($_POST['mark_read']);
+    if (verifyCSRFToken($_POST['csrf_token']) && hasPermission('bibliothek', 'write')) {
+        $readFile = basename($_POST['mark_read']);
         $readerName = trim((string)($_POST['reader_name'] ?? ''));
-        if ($readerName === '') $readerName = $_SESSION['username'] ?? 'Unbekannt';
-        if (markFileAsRead($readFile, $readerName)) {
-            $message = ['type' => 'success', 'text' => '📖 Ausleihe für ' . htmlspecialchars($readerName, ENT_QUOTES, 'UTF-8') . ' eingetragen.'];
+        if ($readerName === '') {
+            $readerName = $_SESSION['username'] ?? 'Unbekannt';
+        }
+        $borrowError = null;
+        if (borrowBook($readFile, $readerName, $borrowError)) {
+            $message = ['type' => 'success', 'text' => 'Ausleihe eingetragen.'];
+        } else {
+            $message = ['type' => 'error', 'text' => $borrowError ?: 'Ausleihe fehlgeschlagen.'];
         }
     }
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['zurueckgeben_id'], $_POST['csrf_token'])) {
-    if (verifyCSRFToken($_POST['csrf_token'])) {
-        $ausleiheId  = (int)$_POST['zurueckgeben_id'];
-        $vonName     = trim((string)($_POST['zurueckgeben_von'] ?? ''));
-        if (zurueckgebenAusleihe($ausleiheId, $vonName)) {
-            $message = ['type' => 'success', 'text' => '✅ Rückgabe eingetragen.'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['return_book'], $_POST['csrf_token'])) {
+    if (verifyCSRFToken($_POST['csrf_token']) && hasPermission('bibliothek', 'write')) {
+        $returnFile = basename($_POST['return_book']);
+        $returnerName = trim((string)($_POST['returner_name'] ?? ''));
+        if ($returnerName === '') {
+            $returnerName = $_SESSION['username'] ?? 'Unbekannt';
+        }
+
+        $returnError = null;
+        if (returnBook($returnFile, $returnerName, $returnError)) {
+            $message = ['type' => 'success', 'text' => 'Rückgabe eingetragen.'];
+        } else {
+            $message = ['type' => 'error', 'text' => $returnError ?: 'Rückgabe fehlgeschlagen.'];
+        }
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['set_copies'], $_POST['copies_file'], $_POST['csrf_token'])) {
+    if (verifyCSRFToken($_POST['csrf_token']) && hasPermission('bibliothek', 'write')) {
+        $copiesFile = basename($_POST['copies_file']);
+        $copiesTotal = intval($_POST['set_copies']);
+
+        if (setBookCopies($copiesFile, $copiesTotal)) {
+            $message = ['type' => 'success', 'text' => 'Exemplare aktualisiert.'];
+        } else {
+            $message = ['type' => 'error', 'text' => 'Exemplare konnten nicht aktualisiert werden.'];
         }
     }
 }
@@ -233,43 +258,18 @@ function prettyFilename($filename) {
                 <p style="text-align:center;width:100%;color:#888;">Hier liegt nichts...</p>
             <?php else: ?>
                 <?php foreach ($files as $file): ?>
-                    <?php
-                    $isForbidden   = ($file['category'] ?? '') === 'forbidden';
-                    $quality       = $file['quality'] ?? 'common';
-                    $qualityClass  = 'quality-' . $quality;
-                    $ext           = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-                    $isPdf         = ($ext === 'pdf');
-                    $isViewerText  = in_array($ext, ['txt','md','markdown','bbcode','bbc','html','htm'], true);
-                    $isBook        = in_array($ext, ['pdf','txt','md','doc','docx','epub','html','htm']);
-
-                    // Ausleihe-Daten
-                    $lastReadBy      = trim((string)($file['last_read_by'] ?? ''));
-                    $lastReadAt      = isset($file['last_read_at']) ? intval($file['last_read_at']) : null;
-                    $readLog         = $isBook ? getReadLog($file['name'], 50) : [];
-                    $aktiveAusleihen = $isBook ? getAktiveAusleihen($file['name']) : [];
-                    $kopien          = $isBook ? getKopienAnzahl($file['name']) : 1;
-                    $verfuegbar      = max(0, $kopien - count($aktiveAusleihen));
-                    $currentHolder   = $lastReadBy;
-
-                    // Schöner Anzeigename: Unterstriche → Leerzeichen
-                    $prettyName = prettyFilename($file['name']);
-
-                    $bookIconMap = [
-                        'pdf'  => '📕', 'txt'  => '📜', 'md'   => '📝',
-                        'doc'  => '📘', 'docx' => '📘', 'epub' => '📚',
-                        'html' => '🌐', 'htm'  => '🌐',
-                    ];
-                    $bookIcon = $bookIconMap[$ext] ?? '📚';
-
-                    // Qualitäts-Farbe für Cover-Akzent
-                    $qualityAccents = [
-                        'common'    => '#9d9d9d',
-                        'uncommon'  => '#1eff00',
-                        'rare'      => '#0070dd',
-                        'epic'      => '#a335ee',
-                        'legendary' => '#ff8000',
-                    ];
-                    $accentColor = $qualityAccents[$quality] ?? '#9d9d9d';
+                    <?php 
+                    $isForbidden = ($file['category'] ?? '') === 'forbidden';
+                    $quality = $file['quality'] ?? 'common';
+                    $qualityClass = 'quality-' . $quality;
+                    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+                    $isPdf = ($ext === 'pdf');
+                    $isViewerText = in_array($ext, ['txt', 'md', 'markdown', 'bbcode', 'bbc', 'html', 'htm'], true);
+                    $isBook = in_array($ext, ['pdf', 'txt', 'md', 'doc', 'docx', 'epub']);
+                    $lastReadBy = trim((string)($file['last_read_by'] ?? ''));
+                    $lastReadAt = isset($file['last_read_at']) ? intval($file['last_read_at']) : null;
+                    $readLog = $isBook ? getReadLog($file['name'], 5) : [];
+                    $inventory = $isBook ? getBookInventory($file['name']) : ['total' => 0, 'borrowed' => 0, 'available' => 0];
                     ?>
 
                     <div class="rp-card-wrapper <?= $qualityClass ?>">
@@ -314,6 +314,10 @@ function prettyFilename($filename) {
 
                             <?php /* ── INFO-ZEILE ── */ ?>
                             <div class="rp-card__info">
+                                <span class="rp-card__filename"><?php echo htmlspecialchars($file['name']); ?></span>
+                                <?php if ($isBook): ?>
+                                    <span class="rp-card__read-meta"><?php echo $lastReadBy !== '' ? ('📖 Zuletzt: ' . htmlspecialchars($lastReadBy)) : '📖 Noch ungelesen'; ?></span>
+                                    <span class="rp-card__read-meta">📚 Exemplare: <?php echo intval($inventory['available']); ?> / <?php echo intval($inventory['total']); ?> verfügbar</span>
                                 <span class="rp-card__filename"><?= htmlspecialchars($prettyName, ENT_QUOTES, 'UTF-8') ?></span>
                                 <?php if ($isBook && $currentHolder !== ''): ?>
                                     <span class="rp-card__read-meta">📖 <?= htmlspecialchars($currentHolder, ENT_QUOTES, 'UTF-8') ?></span>
@@ -399,44 +403,21 @@ function prettyFilename($filename) {
                                 <?php endif; ?>
 
                                 <?php if ($isBook): ?>
-                                    <?php /* Exemplare-Zeile */ ?>
-                                    <div style="margin-top:7px;padding-top:6px;border-top:1px solid rgba(212,175,55,0.18);">
-                                        <?php
-                                            $verfuegbarColor = $verfuegbar <= 0 ? 'var(--quality-legendary)' : ($verfuegbar < $kopien ? 'var(--quality-uncommon)' : 'var(--quality-uncommon)');
-                                        ?>
-                                        <span style="color:var(--accent-gold);">📚 Exemplare:</span>
-                                        <strong style="color:<?= $verfuegbar > 0 ? '#1eff00' : '#ff4444' ?>;"><?= $verfuegbar ?></strong>
-                                        <span style="opacity:0.6;">/ <?= $kopien ?> verfügbar</span>
-                                        <?php if (count($aktiveAusleihen) > 0): ?>
-                                            <div style="margin-top:4px;font-size:0.82em;color:rgba(255,200,100,0.9);">
-                                                Ausgeliehen an:
-                                                <?php foreach ($aktiveAusleihen as $a): ?>
-                                                    <div style="margin-left:8px;">
-                                                        📖 <?= htmlspecialchars($a['reader_name'], ENT_QUOTES, 'UTF-8') ?>
-                                                        <span style="opacity:0.55;">(<?= htmlspecialchars(formatDate(intval($a['read_at'])), ENT_QUOTES, 'UTF-8') ?>)</span>
-                                                    </div>
-                                                <?php endforeach; ?>
-                                            </div>
-                                        <?php else: ?>
-                                            <div style="font-size:0.82em;opacity:0.55;margin-top:2px;">Alle Exemplare verfügbar</div>
-                                        <?php endif; ?>
-                                    </div>
-
-                                    <?php /* Verlauf (scrollbar bei vielen Einträgen) */ ?>
+                                    <?php if ($lastReadBy !== '' && $lastReadAt): ?>
+                                        <div>📖 Zuletzt gelesen von: <?php echo htmlspecialchars($lastReadBy); ?> (<?php echo formatDate($lastReadAt); ?>)</div>
+                                    <?php else: ?>
+                                        <div>📖 Zuletzt gelesen von: Noch nicht gelesen</div>
+                                    <?php endif; ?>
+                                    <div>📚 Bestand: <?php echo intval($inventory['total']); ?> · Ausgeliehen: <?php echo intval($inventory['borrowed']); ?> · Verfügbar: <?php echo intval($inventory['available']); ?></div>
                                     <?php if (!empty($readLog)): ?>
-                                        <div style="margin-top:8px;padding-top:6px;border-top:1px solid rgba(212,175,55,0.15);">
-                                            <div style="font-size:0.72em;opacity:0.55;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;">
-                                                Verlauf (<?= count($readLog) ?>)
-                                            </div>
-                                            <div class="rp-tooltip__log">
-                                                <?php foreach ($readLog as $log): ?>
-                                                    <?php $zurück = !empty($log['zurueckgegeben_am']); ?>
-                                                    <div class="rp-tooltip__log-row <?= $zurück ? 'rp-tooltip__log-row--returned' : 'rp-tooltip__log-row--active' ?>">
-                                                        <span><?= $zurück ? '✅' : '📖' ?> <?= htmlspecialchars($log['reader_name'], ENT_QUOTES, 'UTF-8') ?></span>
-                                                        <span class="rp-tooltip__log-date"><?= htmlspecialchars(formatDate(intval($log['read_at'])), ENT_QUOTES, 'UTF-8') ?></span>
-                                                    </div>
-                                                <?php endforeach; ?>
-                                            </div>
+                                        <div style="margin-top:6px; opacity:0.9;">🗒️ Verlauf:
+                                            <?php foreach ($readLog as $idx => $log): ?>
+                                                <div style="font-size:0.85em; margin-left:10px;">
+                                                    - <?php echo ($log['action'] === 'return') ? '↩️ Rückgabe: ' : '📖 Ausleihe: '; ?>
+                                                    <?php echo htmlspecialchars($log['reader_name']); ?>
+                                                    (<?php echo formatDate(intval($log['read_at'])); ?>)
+                                                </div>
+                                            <?php endforeach; ?>
                                         </div>
                                     <?php endif; ?>
 
@@ -461,14 +442,30 @@ function prettyFilename($filename) {
                                 </form>
                             <?php endif; ?>
 
-                            <?php if (!$file['is_image']): ?>
+                            <?php if (!$file['is_image'] && $isBook): ?>
+                                <form method="post" style="margin:0; display:inline-flex;" class="rp-card__action-form">
+                                    <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
+                                    <input type="hidden" name="copies_file" value="<?php echo htmlspecialchars($file['name']); ?>">
+                                    <input type="number" min="0" max="99" step="1" name="set_copies" value="<?php echo intval($inventory['total']); ?>" onchange="this.form.submit()" class="rp-card__copies-input rp-card__action-control" title="Anzahl Exemplare">
+                                </form>
+
                                 <form method="post" style="margin:0; display:inline-flex;" class="rp-card__borrow-form rp-card__action-form" onsubmit="return prepareBorrowerName(this);">
                                     <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
                                     <input type="hidden" name="mark_read" value="<?php echo htmlspecialchars($file['name']); ?>">
                                     <input type="hidden" name="reader_name" value="">
-                                    <button type="submit" class="rp-btn rp-btn--small rp-card__action-btn rp-card__action-btn--borrow" title="Ausleihe eintragen">
+                                    <button type="submit" class="rp-card__action-btn rp-card__action-btn--borrow" title="Ausleihe eintragen">
                                         <span class="rp-card__action-icon">📖</span>
                                         <span>Ausleihen</span>
+                                    </button>
+                                </form>
+
+                                <form method="post" style="margin:0; display:inline-flex;" class="rp-card__return-form rp-card__action-form" onsubmit="return prepareReturnerName(this);">
+                                    <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
+                                    <input type="hidden" name="return_book" value="<?php echo htmlspecialchars($file['name']); ?>">
+                                    <input type="hidden" name="returner_name" value="">
+                                    <button type="submit" class="rp-card__action-btn rp-card__action-btn--return" title="Rückgabe eintragen">
+                                        <span class="rp-card__action-icon">↩️</span>
+                                        <span>Zurückgeben</span>
                                     </button>
                                 </form>
                             <?php endif; ?>
@@ -477,7 +474,7 @@ function prettyFilename($filename) {
                                     <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
                                     <input type="hidden" name="delete_file" value="<?php echo htmlspecialchars($file['name']); ?>">
                                     <input type="hidden" name="delete_cat" value="<?php echo $file['category'] ?? $view; ?>">
-                                    <button type="submit" class="rp-btn rp-btn--delete rp-btn--delete--artifact rp-card__action-btn rp-card__action-btn--delete" title="Verbrennen">
+                                    <button type="submit" class="rp-card__action-btn rp-card__action-btn--delete" title="Verbrennen">
                                         <span class="rp-card__action-icon">🔥</span>
                                         <span>Löschen</span>
                                     </button>
@@ -604,6 +601,18 @@ function prepareReturnName(form) {
 
     idInput.value  = chosenId;
     vonInput.value = returnName.trim();
+    return true;
+}
+
+function prepareReturnerName(form) {
+    const input = form.querySelector('input[name="returner_name"]');
+    if (!input) return true;
+    const current = input.value || '';
+    const name = window.prompt('Wer hat das Buch zurückgegeben?', current);
+    if (name === null) {
+        return false;
+    }
+    input.value = name.trim();
     return true;
 }
 </script>

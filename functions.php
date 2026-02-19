@@ -957,7 +957,7 @@ function migrateBibliothekDB($db) {
         uploaded_at INTEGER NOT NULL DEFAULT 0,
         last_read_by TEXT DEFAULT '',
         last_read_at INTEGER DEFAULT NULL,
-        kopien INTEGER DEFAULT 1
+        copies_total INTEGER NOT NULL DEFAULT 1
     )");
 
     // Rückwärtskompatibilität: kopien-Spalte zu bestehenden DBs hinzufügen
@@ -969,13 +969,30 @@ function migrateBibliothekDB($db) {
         filename TEXT NOT NULL,
         reader_name TEXT NOT NULL,
         read_at INTEGER NOT NULL,
-        zurueckgegeben_am INTEGER DEFAULT NULL,
-        zurueckgegeben_von TEXT DEFAULT NULL
+        action TEXT DEFAULT 'borrow'
     )");
 
-    // Rückwärtskompatibilität: Rückgabe-Spalten zu bestehenden DBs hinzufügen
-    try { $db->exec("ALTER TABLE read_log ADD COLUMN zurueckgegeben_am INTEGER DEFAULT NULL"); } catch (PDOException $e) {}
-    try { $db->exec("ALTER TABLE read_log ADD COLUMN zurueckgegeben_von TEXT DEFAULT NULL"); } catch (PDOException $e) {}
+    // Backward-Compatibility: fehlende Spalten ergänzen
+    if (!bibliothekColumnExists($db, 'file_metadata', 'copies_total')) {
+        $db->exec("ALTER TABLE file_metadata ADD COLUMN copies_total INTEGER NOT NULL DEFAULT 1");
+    }
+    if (!bibliothekColumnExists($db, 'read_log', 'action')) {
+        $db->exec("ALTER TABLE read_log ADD COLUMN action TEXT DEFAULT 'borrow'");
+    }
+}
+
+/**
+ * Prüft ob eine Spalte in einer SQLite-Tabelle existiert
+ */
+function bibliothekColumnExists($db, $table, $column) {
+    $stmt = $db->query("PRAGMA table_info($table)");
+    $cols = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($cols as $col) {
+        if (($col['name'] ?? '') === $column) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /**
@@ -1003,7 +1020,7 @@ function saveFileMetadata($filename, $data = []) {
         // Update
         $sets = [];
         $params = [':filename' => $filename];
-        foreach (['quality', 'description', 'category', 'uploaded_by', 'last_read_by', 'last_read_at', 'kopien'] as $field) {
+        foreach (['quality', 'description', 'category', 'uploaded_by', 'last_read_by', 'last_read_at', 'copies_total'] as $field) {
             if (array_key_exists($field, $data)) {
                 $sets[] = "$field = :$field";
                 $params[":$field"] = $data[$field];
@@ -1015,15 +1032,16 @@ function saveFileMetadata($filename, $data = []) {
         return $stmt->execute($params);
     } else {
         // Insert
-        $stmt = $db->prepare("INSERT INTO file_metadata (filename, category, quality, description, uploaded_by, uploaded_at)
-            VALUES (:filename, :category, :quality, :description, :uploaded_by, :uploaded_at)");
+        $stmt = $db->prepare("INSERT INTO file_metadata (filename, category, quality, description, uploaded_by, uploaded_at, copies_total)
+            VALUES (:filename, :category, :quality, :description, :uploaded_by, :uploaded_at, :copies_total)");
         return $stmt->execute([
             ':filename' => $filename,
             ':category' => $data['category'] ?? 'normal',
             ':quality' => $data['quality'] ?? null,
             ':description' => $data['description'] ?? '',
             ':uploaded_by' => $data['uploaded_by'] ?? '',
-            ':uploaded_at' => $data['uploaded_at'] ?? time()
+            ':uploaded_at' => $data['uploaded_at'] ?? time(),
+            ':copies_total' => max(0, intval($data['copies_total'] ?? 1))
         ]);
     }
 }
@@ -1046,7 +1064,7 @@ function markFileAsRead($filename, $readerName) {
     if (!$db) return false;
 
     // Lese-Log eintragen
-    $stmt = $db->prepare("INSERT INTO read_log (filename, reader_name, read_at) VALUES (:filename, :reader_name, :read_at)");
+    $stmt = $db->prepare("INSERT INTO read_log (filename, reader_name, read_at, action) VALUES (:filename, :reader_name, :read_at, 'borrow')");
     $stmt->execute([
         ':filename' => $filename,
         ':reader_name' => $readerName,
@@ -1061,17 +1079,97 @@ function markFileAsRead($filename, $readerName) {
 }
 
 /**
- * Lese-Logbuch einer Datei abrufen (inkl. Rückgabe-Info)
+ * Anzahl Exemplare setzen
+ */
+function setBookCopies($filename, $copiesTotal) {
+    $copies = max(0, intval($copiesTotal));
+    return saveFileMetadata($filename, ['copies_total' => $copies]);
+}
+
+/**
+ * Aktuell ausgeliehene Exemplare
+ */
+function getBorrowedCount($filename) {
+    $db = getBibliothekDB();
+    if (!$db) return 0;
+
+    $stmt = $db->prepare("SELECT COALESCE(SUM(
+        CASE
+            WHEN COALESCE(action, 'borrow') = 'borrow' THEN 1
+            WHEN action = 'return' THEN -1
+            ELSE 0
+        END
+    ), 0) AS borrowed FROM read_log WHERE filename = :filename");
+    $stmt->execute([':filename' => $filename]);
+    return max(0, intval($stmt->fetchColumn()));
+}
+
+/**
+ * Bestand / ausgeliehen / verfügbar für ein Buch
+ */
+function getBookInventory($filename) {
+    $meta = getFileMetadata($filename);
+    $copiesTotal = max(0, intval($meta['copies_total'] ?? 1));
+    $borrowed = getBorrowedCount($filename);
+    $available = max(0, $copiesTotal - $borrowed);
+
+    return [
+        'total' => $copiesTotal,
+        'borrowed' => $borrowed,
+        'available' => $available
+    ];
+}
+
+/**
+ * Buch ausleihen
+ */
+function borrowBook($filename, $borrowerName, &$error = null) {
+    $inventory = getBookInventory($filename);
+    if ($inventory['available'] <= 0) {
+        $error = 'Keine Exemplare mehr verfügbar.';
+        return false;
+    }
+
+    return markFileAsRead($filename, $borrowerName);
+}
+
+/**
+ * Buch zurückgeben
+ */
+function returnBook($filename, $returnerName, &$error = null) {
+    $inventory = getBookInventory($filename);
+    if ($inventory['borrowed'] <= 0) {
+        $error = 'Es ist aktuell kein Exemplar ausgeliehen.';
+        return false;
+    }
+
+    $db = getBibliothekDB();
+    if (!$db) {
+        $error = 'Datenbank nicht verfügbar.';
+        return false;
+    }
+
+    $stmt = $db->prepare("INSERT INTO read_log (filename, reader_name, read_at, action)
+        VALUES (:filename, :reader_name, :read_at, 'return')");
+    return $stmt->execute([
+        ':filename' => $filename,
+        ':reader_name' => $returnerName,
+        ':read_at' => time()
+    ]);
+}
+
+/**
+ * Lese-Logbuch einer Datei abrufen
  */
 function getReadLog($filename, $limit = 5) {
     $db = getBibliothekDB();
     if (!$db) return [];
 
-    $stmt = $db->prepare("SELECT id, reader_name, read_at, zurueckgegeben_am, zurueckgegeben_von
-                          FROM read_log
-                          WHERE filename = :filename
-                          ORDER BY read_at DESC
-                          LIMIT :limit");
+    $stmt = $db->prepare("SELECT reader_name, read_at, COALESCE(action, 'borrow') AS action
+        FROM read_log
+        WHERE filename = :filename
+        ORDER BY read_at DESC
+        LIMIT :limit");
     $stmt->bindValue(':filename', $filename, PDO::PARAM_STR);
     $stmt->bindValue(':limit',    $limit,    PDO::PARAM_INT);
     $stmt->execute();
@@ -1299,6 +1397,7 @@ function getFiles($mode = 'normal', $searchQuery = '') {
                 'uploaded_by' => $meta['uploaded_by'] ?? '',
                 'last_read_by' => $meta['last_read_by'] ?? '',
                 'last_read_at' => $meta['last_read_at'] ?? null,
+                'copies_total' => max(0, intval($meta['copies_total'] ?? 1)),
                 'quality_manual' => ($meta && $meta['quality'] !== null && $meta['quality'] !== '')
             ];
         }
