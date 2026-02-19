@@ -2576,20 +2576,22 @@ button:hover, .nav-btn:hover {
 /* ── Qualitäts-Dropdown: oben rechts, nur bei Hover ── */
 .rp-card__actions {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    left: 10px;
+    bottom: 10px;
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
-    opacity: 0;
-    transform: translateY(-4px);
-    transition: opacity 0.2s ease, transform 0.2s ease;
+    opacity: 0.97;
+    transform: none;
+    transition: opacity 0.2s ease, transform 0.2s ease, filter 0.2s ease;
     z-index: 12;
     align-items: center;
+    max-width: calc(100% - 20px);
 }
 
 .rp-card-wrapper:hover .rp-card__actions {
     opacity: 1;
-    transform: translateY(0);
+    filter: brightness(1.05);
 }
 
 .rp-card__action-form {
@@ -2644,9 +2646,6 @@ button:hover, .nav-btn:hover {
 }
 
 .rp-card__action-btn--delete {
-    position: absolute;
-    right: 10px;
-    bottom: 10px;
     border-color: rgba(255, 134, 88, 0.58);
     color: #ffd9c8;
     background: linear-gradient(180deg, rgba(121, 38, 30, 0.97), rgba(66, 15, 12, 0.96));
@@ -2655,6 +2654,27 @@ button:hover, .nav-btn:hover {
 
 .rp-card__action-icon {
     font-size: 0.95rem;
+}
+
+.rp-card__borrow-form .rp-btn--small {
+    white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+    .rp-card__actions {
+        opacity: 1;
+        transform: none;
+    }
+
+    .rp-card__quality-select {
+        min-width: 148px;
+        max-width: 160px;
+    }
+
+    .rp-card__action-btn {
+        font-size: 0.72rem;
+        padding: 7px 9px;
+    }
 }
 .rp-card__pill-btn--gold  { border-color: rgba(212,175,55,0.4); color: rgba(212,175,55,0.9); }
 .rp-card__pill-btn--green { border-color: rgba(30,200,100,0.4); color: rgba(80,220,140,0.9); }

@@ -472,22 +472,19 @@ function prettyFilename($filename) {
                                     </button>
                                 </form>
                             <?php endif; ?>
+                            <?php if (hasPermission('bibliothek', 'write')): ?>
+                                <form method="post" style="margin: 0;" class="rp-card__action-form" onsubmit="return confirm('Endgültig vernichten?');">
+                                    <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
+                                    <input type="hidden" name="delete_file" value="<?php echo htmlspecialchars($file['name']); ?>">
+                                    <input type="hidden" name="delete_cat" value="<?php echo $file['category'] ?? $view; ?>">
+                                    <button type="submit" class="rp-btn rp-btn--delete rp-btn--delete--artifact rp-card__action-btn rp-card__action-btn--delete" title="Verbrennen">
+                                        <span class="rp-card__action-icon">🔥</span>
+                                        <span>Löschen</span>
+                                    </button>
+                                </form>
+                            <?php endif; ?>
                         </div>
-
-                        <?php if (hasPermission('bibliothek', 'write')): ?>
-                            <form method="post" style="margin: 0;" class="rp-card__action-form" onsubmit="return confirm('Endgültig vernichten?');">
-                                <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
-                                <input type="hidden" name="delete_file" value="<?php echo htmlspecialchars($file['name']); ?>">
-                                <input type="hidden" name="delete_cat" value="<?php echo $file['category'] ?? $view; ?>">
-                                <button type="submit" class="rp-btn rp-btn--delete rp-btn--delete--artifact rp-card__action-btn rp-card__action-btn--delete" title="Verbrennen">
-                                    <span class="rp-card__action-icon">🔥</span>
-                                    <span>Löschen</span>
-                                </button>
-                            </form>
-                        </div>
-                        <?php endif; ?>
-
-                    </div><?php /* Ende rp-card-wrapper */ ?>
+                    </div>
                 <?php endforeach; ?>
             <?php endif; ?>
         </div>
