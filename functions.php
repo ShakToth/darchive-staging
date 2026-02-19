@@ -38,13 +38,112 @@ function getUserDB() {
             $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             $db->exec('PRAGMA foreign_keys = ON');
 
-            // Auto-Migration: Rollen-/Berechtigungstabellen erstellen falls nötig
+            // Auto-Migrationen
             migrateRolesSystem($db);
+            migrateStartseiteInhalte($db);
         } catch (PDOException $e) {
             die("Datenbankfehler: " . $e->getMessage());
         }
     }
     return $db;
+}
+
+/**
+ * Auto-Migration für bearbeitbare Inhalte der Startseite
+ */
+function migrateStartseiteInhalte($db) {
+    $db->exec("CREATE TABLE IF NOT EXISTS startseite_inhalte (
+        slug TEXT PRIMARY KEY,
+        titel TEXT NOT NULL,
+        inhalt TEXT NOT NULL DEFAULT '',
+        aktualisiert_von TEXT DEFAULT '',
+        aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+
+    $defaultInhalte = [
+        'geschichte' => [
+            'titel' => 'Geschichte',
+            'inhalt' => "Dämmerhafen ist ein Ort voller alter Schwüre, neuer Bündnisse und Geschichten, die in jeder Taverne anders erzählt werden.\n\nSchreibe hier eure Chronik, wichtige Ereignisse und die Ursprünge eurer Gemeinschaft hinein."
+        ],
+        'regeln' => [
+            'titel' => 'Regeln',
+            'inhalt' => "Hier stehen eure alltäglichen Verhaltensregeln für ein harmonisches Miteinander.\n\nNutze Listen, Absätze oder Hervorhebungen, damit alles schnell erfassbar bleibt."
+        ],
+        'ansprechpartner' => [
+            'titel' => 'Ansprechpartner',
+            'inhalt' => "Trage hier ein, wer für welche Themen zuständig ist (RP-Leitung, Miliz, Rekrutierung, Technik usw.).\n\nTipp: Mit **Namen**, *Rolle* und Kontaktweg strukturieren."
+        ],
+        'regelwerk' => [
+            'titel' => 'Regelwerk',
+            'inhalt' => "Nutze diesen Abschnitt für längere und detaillierte Passagen eures vollständigen Regelwerks.\n\nDu kannst hier große Textmengen pflegen und mit Überschriften in **fett** arbeiten."
+        ],
+    ];
+
+    $stmt = $db->prepare("INSERT OR IGNORE INTO startseite_inhalte (slug, titel, inhalt) VALUES (:slug, :titel, :inhalt)");
+    foreach ($defaultInhalte as $slug => $eintrag) {
+        $stmt->execute([
+            ':slug' => $slug,
+            ':titel' => $eintrag['titel'],
+            ':inhalt' => $eintrag['inhalt']
+        ]);
+    }
+}
+
+/**
+ * Liefert alle Startseiteninhalte in fester Reihenfolge
+ */
+function getStartseiteInhalte() {
+    $db = getUserDB();
+    $reihenfolge = ['geschichte', 'regeln', 'ansprechpartner', 'regelwerk'];
+    $inhalte = [];
+
+    try {
+        $stmt = $db->query("SELECT slug, titel, inhalt, aktualisiert_von, aktualisiert_am FROM startseite_inhalte");
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($rows as $row) {
+            $inhalte[$row['slug']] = $row;
+        }
+    } catch (PDOException $e) {
+        return [];
+    }
+
+    $sortiert = [];
+    foreach ($reihenfolge as $slug) {
+        if (isset($inhalte[$slug])) {
+            $sortiert[$slug] = $inhalte[$slug];
+        }
+    }
+
+    return $sortiert;
+}
+
+/**
+ * Speichert den Inhalt einer Startseiten-Kategorie
+ */
+function updateStartseiteInhalt($slug, $inhalt, $autor) {
+    $gueltigeSlugs = ['geschichte', 'regeln', 'ansprechpartner', 'regelwerk'];
+    if (!in_array($slug, $gueltigeSlugs, true)) {
+        return false;
+    }
+
+    $db = getUserDB();
+
+    try {
+        $stmt = $db->prepare("UPDATE startseite_inhalte
+            SET inhalt = :inhalt,
+                aktualisiert_von = :autor,
+                aktualisiert_am = CURRENT_TIMESTAMP
+            WHERE slug = :slug");
+
+        return $stmt->execute([
+            ':inhalt' => trim($inhalt),
+            ':autor' => $autor,
+            ':slug' => $slug
+        ]);
+    } catch (PDOException $e) {
+        return false;
+    }
 }
 
 /**
@@ -856,7 +955,8 @@ function migrateBibliothekDB($db) {
         uploaded_by TEXT DEFAULT '',
         uploaded_at INTEGER NOT NULL DEFAULT 0,
         last_read_by TEXT DEFAULT '',
-        last_read_at INTEGER DEFAULT NULL
+        last_read_at INTEGER DEFAULT NULL,
+        copies_total INTEGER NOT NULL DEFAULT 1
     )");
 
     // Ausleih-/Lese-Logbuch
@@ -864,8 +964,31 @@ function migrateBibliothekDB($db) {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         filename TEXT NOT NULL,
         reader_name TEXT NOT NULL,
-        read_at INTEGER NOT NULL
+        read_at INTEGER NOT NULL,
+        action TEXT DEFAULT 'borrow'
     )");
+
+    // Backward-Compatibility: fehlende Spalten ergänzen
+    if (!bibliothekColumnExists($db, 'file_metadata', 'copies_total')) {
+        $db->exec("ALTER TABLE file_metadata ADD COLUMN copies_total INTEGER NOT NULL DEFAULT 1");
+    }
+    if (!bibliothekColumnExists($db, 'read_log', 'action')) {
+        $db->exec("ALTER TABLE read_log ADD COLUMN action TEXT DEFAULT 'borrow'");
+    }
+}
+
+/**
+ * Prüft ob eine Spalte in einer SQLite-Tabelle existiert
+ */
+function bibliothekColumnExists($db, $table, $column) {
+    $stmt = $db->query("PRAGMA table_info($table)");
+    $cols = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($cols as $col) {
+        if (($col['name'] ?? '') === $column) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /**
@@ -893,7 +1016,7 @@ function saveFileMetadata($filename, $data = []) {
         // Update
         $sets = [];
         $params = [':filename' => $filename];
-        foreach (['quality', 'description', 'category', 'uploaded_by', 'last_read_by', 'last_read_at'] as $field) {
+        foreach (['quality', 'description', 'category', 'uploaded_by', 'last_read_by', 'last_read_at', 'copies_total'] as $field) {
             if (array_key_exists($field, $data)) {
                 $sets[] = "$field = :$field";
                 $params[":$field"] = $data[$field];
@@ -905,15 +1028,16 @@ function saveFileMetadata($filename, $data = []) {
         return $stmt->execute($params);
     } else {
         // Insert
-        $stmt = $db->prepare("INSERT INTO file_metadata (filename, category, quality, description, uploaded_by, uploaded_at)
-            VALUES (:filename, :category, :quality, :description, :uploaded_by, :uploaded_at)");
+        $stmt = $db->prepare("INSERT INTO file_metadata (filename, category, quality, description, uploaded_by, uploaded_at, copies_total)
+            VALUES (:filename, :category, :quality, :description, :uploaded_by, :uploaded_at, :copies_total)");
         return $stmt->execute([
             ':filename' => $filename,
             ':category' => $data['category'] ?? 'normal',
             ':quality' => $data['quality'] ?? null,
             ':description' => $data['description'] ?? '',
             ':uploaded_by' => $data['uploaded_by'] ?? '',
-            ':uploaded_at' => $data['uploaded_at'] ?? time()
+            ':uploaded_at' => $data['uploaded_at'] ?? time(),
+            ':copies_total' => max(0, intval($data['copies_total'] ?? 1))
         ]);
     }
 }
@@ -936,7 +1060,7 @@ function markFileAsRead($filename, $readerName) {
     if (!$db) return false;
 
     // Lese-Log eintragen
-    $stmt = $db->prepare("INSERT INTO read_log (filename, reader_name, read_at) VALUES (:filename, :reader_name, :read_at)");
+    $stmt = $db->prepare("INSERT INTO read_log (filename, reader_name, read_at, action) VALUES (:filename, :reader_name, :read_at, 'borrow')");
     $stmt->execute([
         ':filename' => $filename,
         ':reader_name' => $readerName,
@@ -951,13 +1075,97 @@ function markFileAsRead($filename, $readerName) {
 }
 
 /**
+ * Anzahl Exemplare setzen
+ */
+function setBookCopies($filename, $copiesTotal) {
+    $copies = max(0, intval($copiesTotal));
+    return saveFileMetadata($filename, ['copies_total' => $copies]);
+}
+
+/**
+ * Aktuell ausgeliehene Exemplare
+ */
+function getBorrowedCount($filename) {
+    $db = getBibliothekDB();
+    if (!$db) return 0;
+
+    $stmt = $db->prepare("SELECT COALESCE(SUM(
+        CASE
+            WHEN COALESCE(action, 'borrow') = 'borrow' THEN 1
+            WHEN action = 'return' THEN -1
+            ELSE 0
+        END
+    ), 0) AS borrowed FROM read_log WHERE filename = :filename");
+    $stmt->execute([':filename' => $filename]);
+    return max(0, intval($stmt->fetchColumn()));
+}
+
+/**
+ * Bestand / ausgeliehen / verfügbar für ein Buch
+ */
+function getBookInventory($filename) {
+    $meta = getFileMetadata($filename);
+    $copiesTotal = max(0, intval($meta['copies_total'] ?? 1));
+    $borrowed = getBorrowedCount($filename);
+    $available = max(0, $copiesTotal - $borrowed);
+
+    return [
+        'total' => $copiesTotal,
+        'borrowed' => $borrowed,
+        'available' => $available
+    ];
+}
+
+/**
+ * Buch ausleihen
+ */
+function borrowBook($filename, $borrowerName, &$error = null) {
+    $inventory = getBookInventory($filename);
+    if ($inventory['available'] <= 0) {
+        $error = 'Keine Exemplare mehr verfügbar.';
+        return false;
+    }
+
+    return markFileAsRead($filename, $borrowerName);
+}
+
+/**
+ * Buch zurückgeben
+ */
+function returnBook($filename, $returnerName, &$error = null) {
+    $inventory = getBookInventory($filename);
+    if ($inventory['borrowed'] <= 0) {
+        $error = 'Es ist aktuell kein Exemplar ausgeliehen.';
+        return false;
+    }
+
+    $db = getBibliothekDB();
+    if (!$db) {
+        $error = 'Datenbank nicht verfügbar.';
+        return false;
+    }
+
+    $stmt = $db->prepare("INSERT INTO read_log (filename, reader_name, read_at, action)
+        VALUES (:filename, :reader_name, :read_at, 'return')");
+    return $stmt->execute([
+        ':filename' => $filename,
+        ':reader_name' => $returnerName,
+        ':read_at' => time()
+    ]);
+}
+
+/**
  * Lese-Logbuch einer Datei abrufen
  */
 function getReadLog($filename, $limit = 5) {
     $db = getBibliothekDB();
     if (!$db) return [];
 
-    $stmt = $db->prepare("SELECT reader_name, read_at FROM read_log WHERE filename = :filename ORDER BY read_at DESC LIMIT :limit");
+    $stmt = $db->prepare("SELECT reader_name, read_at, COALESCE(action, 'borrow') AS action
+        FROM read_log
+        WHERE filename = :filename
+        ORDER BY read_at DESC
+        LIMIT :limit");
     $stmt->bindValue(':filename', $filename, PDO::PARAM_STR);
     $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
     $stmt->execute();
@@ -1136,6 +1344,7 @@ function getFiles($mode = 'normal', $searchQuery = '') {
                 'uploaded_by' => $meta['uploaded_by'] ?? '',
                 'last_read_by' => $meta['last_read_by'] ?? '',
                 'last_read_at' => $meta['last_read_at'] ?? null,
+                'copies_total' => max(0, intval($meta['copies_total'] ?? 1)),
                 'quality_manual' => ($meta && $meta['quality'] !== null && $meta['quality'] !== '')
             ];
         }
