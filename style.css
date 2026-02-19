@@ -1267,6 +1267,16 @@ button[type="submit"]:not([class*="rp-btn"]):not([class*="miliz-nav"]):not([clas
     cursor: pointer;
 }
 
+.rp-btn--delete--artifact {
+    top: auto;
+    bottom: 6px;
+    right: 6px;
+    padding: 4px 8px;
+    font-size: 0.85rem;
+    border-width: 1px;
+    border-radius: 6px;
+}
+
 .rp-btn--delete:hover {
     background: radial-gradient(circle at center, #ff4444, #cc0000);
     transform: scale(1.15);
@@ -2497,6 +2507,50 @@ button:hover, .nav-btn:hover {
     min-height: 28px;
 }
 
+.rp-card__quality-select {
+    min-width: 150px;
+    max-width: 180px;
+}
+
+.rp-card__borrow-form .rp-btn--small {
+    white-space: nowrap;
+    font-size: 0.95rem;
+}
+
+.lightbox-text {
+    background: rgba(10, 10, 14, 0.96);
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    border-radius: 8px;
+    padding: 20px;
+    color: #f5e8c8;
+}
+
+.library-viewer__title {
+    margin: 0 0 12px;
+    color: var(--accent-gold);
+    font-family: var(--font-heading);
+    font-size: 1.3rem;
+    border-bottom: 1px solid rgba(212, 175, 55, 0.35);
+    padding-bottom: 8px;
+}
+
+.library-viewer__content {
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.library-viewer__content pre {
+    white-space: pre-wrap;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    border-radius: 6px;
+    padding: 10px;
+}
+
+.library-viewer__loading {
+    opacity: 0.85;
+}
+
 /* =================================================================
    21. CSS BOOK COVERS (Bibliothek)
    ================================================================= */
@@ -3136,4 +3190,13 @@ button:hover, .nav-btn:hover {
         flex: 1;
         min-width: 120px;
     }
+}
+
+
+.rp-view-immersive .rp-card--transparent {
+    background: rgba(248, 238, 211, 0.90);
+}
+
+.rp-view-immersive .rp-card--entry.rp-card--transparent {
+    background: rgba(248, 238, 211, 0.90) !important;
 }
