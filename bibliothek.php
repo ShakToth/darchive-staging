@@ -61,11 +61,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['set_quality'], $_POST
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_read'], $_POST['csrf_token'])) {
-    if (verifyCSRFToken($_POST['csrf_token']) && isLoggedIn()) {
+    if (verifyCSRFToken($_POST['csrf_token'])) {
         $readFile = basename($_POST['mark_read']);
-        $readerName = $_SESSION['username'] ?? 'Unbekannt';
+        $readerName = trim((string)($_POST['reader_name'] ?? ''));
+        if ($readerName === '') {
+            $readerName = $_SESSION['username'] ?? 'Unbekannt';
+        }
         if (markFileAsRead($readFile, $readerName)) {
-            $message = ['type' => 'success', 'text' => 'Als gelesen markiert.'];
+            $message = ['type' => 'success', 'text' => 'Ausleihe eingetragen.'];
         }
     }
 }
@@ -274,6 +277,7 @@ if ($query !== '' && !isset($_GET['cat'])) {
                     $qualityClass = 'quality-' . $quality;
                     $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
                     $isPdf = ($ext === 'pdf');
+                    $isViewerText = in_array($ext, ['txt', 'md', 'markdown', 'bbcode', 'bbc', 'html', 'htm'], true);
                     $isBook = in_array($ext, ['pdf', 'txt', 'md', 'doc', 'docx', 'epub']);
                     $lastReadBy = trim((string)($file['last_read_by'] ?? ''));
                     $lastReadAt = isset($file['last_read_at']) ? intval($file['last_read_at']) : null;
@@ -285,6 +289,8 @@ if ($query !== '' && !isset($_GET['cat'])) {
                             <a href="javascript:void(0);" onclick="openLightbox('<?php echo $file['path']; ?>', 'image')" class="rp-card rp-card--artifact <?php echo $qualityClass; ?> <?php echo $isForbidden ? 'quality-legendary' : ''; ?>">
                         <?php elseif ($isPdf): ?>
                             <a href="javascript:void(0);" onclick="openLightbox('<?php echo $file['path']; ?>', 'pdf')" class="rp-card rp-card--artifact <?php echo $qualityClass; ?> <?php echo $isForbidden ? 'quality-legendary' : ''; ?>">
+                        <?php elseif ($isViewerText): ?>
+                            <a href="javascript:void(0);" onclick="openLightbox('<?php echo $file['path']; ?>', 'text')" class="rp-card rp-card--artifact <?php echo $qualityClass; ?> <?php echo $isForbidden ? 'quality-legendary' : ''; ?>">
                         <?php else: ?>
                             <a href="<?php echo $file['path']; ?>" class="rp-card rp-card--artifact <?php echo $qualityClass; ?> <?php echo $isForbidden ? 'quality-legendary' : ''; ?>" target="_blank">
                         <?php endif; ?>
@@ -361,22 +367,23 @@ if ($query !== '' && !isset($_GET['cat'])) {
                                     <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
                                     <input type="hidden" name="quality_file" value="<?php echo htmlspecialchars($file['name']); ?>">
                                     <select name="set_quality" onchange="this.form.submit()" class="rp-card__quality-select" title="Qualitaet aendern">
-                                        <option value="">Q</option>
-                                        <option value="auto">Auto</option>
-                                        <option value="common" <?php echo $quality === 'common' ? 'selected' : ''; ?>>C</option>
-                                        <option value="uncommon" <?php echo $quality === 'uncommon' ? 'selected' : ''; ?>>U</option>
-                                        <option value="rare" <?php echo $quality === 'rare' ? 'selected' : ''; ?>>R</option>
-                                        <option value="epic" <?php echo $quality === 'epic' ? 'selected' : ''; ?>>E</option>
-                                        <option value="legendary" <?php echo $quality === 'legendary' ? 'selected' : ''; ?>>L</option>
+                                        <option value="" disabled>★ Qualität</option>
+                                        <option value="auto">↻ Automatisch</option>
+                                        <option value="common" <?php echo $quality === 'common' ? 'selected' : ''; ?>>• Gewöhnlich</option>
+                                        <option value="uncommon" <?php echo $quality === 'uncommon' ? 'selected' : ''; ?>>• Ungewöhnlich</option>
+                                        <option value="rare" <?php echo $quality === 'rare' ? 'selected' : ''; ?>>• Selten</option>
+                                        <option value="epic" <?php echo $quality === 'epic' ? 'selected' : ''; ?>>• Episch</option>
+                                        <option value="legendary" <?php echo $quality === 'legendary' ? 'selected' : ''; ?>>• Legendär</option>
                                     </select>
                                 </form>
                             <?php endif; ?>
 
-                            <?php if (isLoggedIn() && !$file['is_image']): ?>
-                                <form method="post" style="margin:0; display:inline-flex;">
+                            <?php if (!$file['is_image']): ?>
+                                <form method="post" style="margin:0; display:inline-flex;" class="rp-card__borrow-form" onsubmit="return prepareBorrowerName(this);">
                                     <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
                                     <input type="hidden" name="mark_read" value="<?php echo htmlspecialchars($file['name']); ?>">
-                                    <button type="submit" class="rp-btn rp-btn--small" title="Als gelesen markieren">&#128214;</button>
+                                    <input type="hidden" name="reader_name" value="">
+                                    <button type="submit" class="rp-btn rp-btn--small" title="Ausleihe eintragen">📖 Ausleihen</button>
                                 </form>
                             <?php endif; ?>
                         </div>
@@ -386,7 +393,7 @@ if ($query !== '' && !isset($_GET['cat'])) {
                                 <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
                                 <input type="hidden" name="delete_file" value="<?php echo htmlspecialchars($file['name']); ?>">
                                 <input type="hidden" name="delete_cat" value="<?php echo $file['category'] ?? $view; ?>">
-                                <button type="submit" class="rp-btn rp-btn--delete" title="Verbrennen">🔥</button>
+                                <button type="submit" class="rp-btn rp-btn--delete rp-btn--delete--artifact" title="Verbrennen">🔥</button>
                             </form>
                         <?php endif; ?>
                     </div>
@@ -504,5 +511,19 @@ function handleDrop(e) {
 }
 </script>
 <?php endif; ?>
+
+<script>
+function prepareBorrowerName(form) {
+    const input = form.querySelector('input[name="reader_name"]');
+    if (!input) return true;
+    const current = input.value || '';
+    const name = window.prompt('Wer leiht dieses Buch aus?', current);
+    if (name === null) {
+        return false;
+    }
+    input.value = name.trim();
+    return true;
+}
+</script>
 
 <?php require_once 'footer.php'; ?>

@@ -1255,6 +1255,54 @@ function parseRichTextSimple($text) {
 }
 
 /**
+ * Leichter BBCode-Parser für sichere Bibliothek-/Miliz-Anzeige
+ */
+function parseBBCodeSimple($text) {
+    $text = htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+
+    $patterns = [
+        '/\[b\](.*?)\[\/b\]/is' => '<strong>$1</strong>',
+        '/\[i\](.*?)\[\/i\]/is' => '<em>$1</em>',
+        '/\[u\](.*?)\[\/u\]/is' => '<u>$1</u>',
+        '/\[s\](.*?)\[\/s\]/is' => '<del>$1</del>',
+        '/\[quote\](.*?)\[\/quote\]/is' => '<blockquote>$1</blockquote>',
+        '/\[code\](.*?)\[\/code\]/is' => '<pre><code>$1</code></pre>',
+        '/\[url=(https?:\/\/[^\]\s]+)\](.*?)\[\/url\]/is' => '<a href="$1" target="_blank" rel="noopener noreferrer">$2</a>',
+        '/\[url\](https?:\/\/[^\[]+)\[\/url\]/is' => '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>',
+    ];
+
+    foreach ($patterns as $pattern => $replacement) {
+        $text = preg_replace($pattern, $replacement, $text);
+    }
+
+    $lines = explode("\n", $text);
+    $inList = false;
+    $result = [];
+
+    foreach ($lines as $line) {
+        if (preg_match('/^\[\*\]\s*(.+)$/', trim($line), $matches)) {
+            if (!$inList) {
+                $result[] = '<ul>';
+                $inList = true;
+            }
+            $result[] = '<li>' . $matches[1] . '</li>';
+        } else {
+            if ($inList) {
+                $result[] = '</ul>';
+                $inList = false;
+            }
+            $result[] = $line;
+        }
+    }
+
+    if ($inList) {
+        $result[] = '</ul>';
+    }
+
+    return nl2br(implode("\n", $result));
+}
+
+/**
  * HTML Sanitizer - Erlaubt nur sichere HTML-Tags, blockiert JavaScript
  * Whitelist-Ansatz: Nur explizit erlaubte Tags werden durchgelassen
  */
