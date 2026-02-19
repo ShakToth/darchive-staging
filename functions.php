@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 // DIREKTER AUFRUF VERBOTEN
 if (basename($_SERVER['PHP_SELF']) === basename(__FILE__)) {
     http_response_code(403);
@@ -812,11 +812,12 @@ define('IGNORE_FILES', ['.', '..', '@eaDir', 'Thumbs.db', '.DS_Store', '.htacces
 
 // Upload-Sicherheit
 define('MAX_FILE_SIZE', 320 * 1024 * 1024); // 320 MB
-define('ALLOWED_EXTENSIONS', ['pdf', 'txt', 'md', 'doc', 'docx', 'xls', 'xlsx', 'zip', 'rar', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'epub']);
+define('ALLOWED_EXTENSIONS', ['pdf', 'txt', 'md', 'doc', 'docx', 'xls', 'xlsx', 'zip', 'rar', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'epub', 'html', 'htm']);
 define('ALLOWED_MIMES', [
     'application/pdf',
     'text/plain',
     'text/markdown',
+    'text/html',
     'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.ms-excel',
@@ -959,7 +960,10 @@ function migrateBibliothekDB($db) {
         copies_total INTEGER NOT NULL DEFAULT 1
     )");
 
-    // Ausleih-/Lese-Logbuch
+    // Rückwärtskompatibilität: kopien-Spalte zu bestehenden DBs hinzufügen
+    try { $db->exec("ALTER TABLE file_metadata ADD COLUMN kopien INTEGER DEFAULT 1"); } catch (PDOException $e) {}
+
+    // Ausleih-Logbuch mit Rückgabe-Unterstützung
     $db->exec("CREATE TABLE IF NOT EXISTS read_log (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         filename TEXT NOT NULL,
@@ -1167,9 +1171,58 @@ function getReadLog($filename, $limit = 5) {
         ORDER BY read_at DESC
         LIMIT :limit");
     $stmt->bindValue(':filename', $filename, PDO::PARAM_STR);
-    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindValue(':limit',    $limit,    PDO::PARAM_INT);
     $stmt->execute();
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Aktive Ausleihen (noch nicht zurückgegeben) für eine Datei
+ */
+function getAktiveAusleihen($filename) {
+    $db = getBibliothekDB();
+    if (!$db) return [];
+
+    $stmt = $db->prepare("SELECT id, reader_name, read_at
+                          FROM read_log
+                          WHERE filename = :filename
+                            AND zurueckgegeben_am IS NULL
+                          ORDER BY read_at DESC");
+    $stmt->execute([':filename' => $filename]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Ausleihe als zurückgegeben markieren
+ */
+function zurueckgebenAusleihe($ausleiheId, $zurueckgebenVon = '') {
+    $db = getBibliothekDB();
+    if (!$db) return false;
+
+    $stmt = $db->prepare("UPDATE read_log
+                          SET zurueckgegeben_am = :am, zurueckgegeben_von = :von
+                          WHERE id = :id AND zurueckgegeben_am IS NULL");
+    return $stmt->execute([
+        ':am'  => time(),
+        ':von' => $zurueckgebenVon ?: null,
+        ':id'  => (int)$ausleiheId,
+    ]);
+}
+
+/**
+ * Anzahl der Exemplare einer Datei setzen
+ */
+function setKopienAnzahl($filename, $kopien) {
+    $kopien = max(1, (int)$kopien);
+    return saveFileMetadata($filename, ['kopien' => $kopien]);
+}
+
+/**
+ * Anzahl der Exemplare einer Datei lesen (Default: 1)
+ */
+function getKopienAnzahl($filename) {
+    $meta = getFileMetadata($filename);
+    return $meta ? max(1, (int)($meta['kopien'] ?? 1)) : 1;
 }
 
 // LEGACY: Alte Login-Funktion für Abwärtskompatibilität (nutzt jetzt Rollensystem)
@@ -1393,61 +1446,265 @@ function formatDate($timestamp) {
 // ============================================
 
 /**
- * Konvertiert Markdown-Style Formatierung in HTML
- * Unterstützt: **fett**, *kursiv*, Listen, Links
- * XSS-sicher durch htmlspecialchars vorher
+ * Vollständiger Markdown-Parser (XSS-sicher, serverseitig)
+ * Unterstützt: Überschriften, **fett**, *kursiv*, ~~durchgestrichen~~,
+ * `inline-code`, Codeblöcke (```lang), Tabellen, Listen (ul/ol,
+ * verschachtelt, Checkboxen), Blockquotes, Links, Bilder, HR,
+ * Fußnoten, numerierte Listen
  */
 function parseRichText($text) {
-    // Schritt 1: HTML-Escaping (Sicherheit!)
+    // --- 1. Zeilenenden normalisieren ---
+    $text = str_replace(["\r\n", "\r"], "\n", $text);
+
+    // --- 2. Codeblöcke extrahieren (VOR Escaping – Inhalt schützen) ---
+    $codeBlocks  = [];
+    $inlineCodes = [];
+    $cbIdx = 0;
+    $icIdx = 0;
+
+    $text = preg_replace_callback(
+        '/```(\w*)\n?([\s\S]*?)```/m',
+        function ($m) use (&$codeBlocks, &$cbIdx) {
+            $lang  = htmlspecialchars($m[1], ENT_QUOTES, 'UTF-8');
+            $inner = htmlspecialchars($m[2], ENT_QUOTES, 'UTF-8');
+            $label = $lang ? '<span class="md-code-lang">' . $lang . '</span>' : '';
+            $codeBlocks[$cbIdx] = '<pre class="md-code-block">' . $label . '<code>' . $inner . '</code></pre>';
+            $token = "\x00CB{$cbIdx}\x00";
+            $cbIdx++;
+            return $token;
+        },
+        $text
+    );
+
+    $text = preg_replace_callback(
+        '/`([^`\n]+)`/',
+        function ($m) use (&$inlineCodes, &$icIdx) {
+            $inlineCodes[$icIdx] = '<code class="md-inline-code">' . htmlspecialchars($m[1], ENT_QUOTES, 'UTF-8') . '</code>';
+            $token = "\x00IC{$icIdx}\x00";
+            $icIdx++;
+            return $token;
+        },
+        $text
+    );
+
+    // --- 3. Fußnoten-Definitionen sammeln (vor Escaping) ---
+    $footnotes = [];
+    $text = preg_replace_callback(
+        '/^\[\^([^\]]+)\]:\s*(.+)$/m',
+        function ($m) use (&$footnotes) {
+            $footnotes[$m[1]] = $m[2]; // Wird später escaped
+            return '';
+        },
+        $text
+    );
+
+    // --- 4. HTML escapen (jetzt sicher: Code-Tokens sind drin) ---
     $text = htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
-    
-    // Schritt 2: Fett-Text (**text** oder __text__)
-    $text = preg_replace('/\*\*(.+?)\*\*/', '<strong>$1</strong>', $text);
-    $text = preg_replace('/__(.+?)__/', '<strong>$1</strong>', $text);
-    
-    // Schritt 3: Kursiv-Text (*text* oder _text_)
-    // Wichtig: Nach Fett, damit *** nicht kollidiert
-    $text = preg_replace('/\*(.+?)\*/', '<em>$1</em>', $text);
-    $text = preg_replace('/_(.+?)_/', '<em>$1</em>', $text);
-    
-    // Schritt 4: Listen (- Item oder * Item am Zeilenanfang)
-    $lines = explode("\n", $text);
-    $inList = false;
-    $result = [];
-    
-    foreach ($lines as $line) {
-        $trimmed = trim($line);
-        
-        // Prüfe ob es eine Liste ist
-        if (preg_match('/^[\-\*]\s+(.+)$/', $trimmed, $matches)) {
-            if (!$inList) {
-                $result[] = '<ul style="margin: 10px 0; padding-left: 20px;">';
-                $inList = true;
+
+    // --- 5. Überschriften (# bis ######) ---
+    $text = preg_replace_callback(
+        '/^(#{1,6})\s+(.+)$/m',
+        function ($m) {
+            $lvl = strlen($m[1]);
+            return '<h' . $lvl . ' class="md-h' . $lvl . '">' . $m[2] . '</h' . $lvl . '>';
+        },
+        $text
+    );
+
+    // --- 6. Blockquotes (&gt; durch htmlspecialchars) ---
+    $text = preg_replace_callback(
+        '/(^&gt;\s?.+\n?)+/m',
+        function ($m) {
+            $inner = preg_replace('/^&gt;\s?/m', '', $m[0]);
+            return '<blockquote class="md-blockquote">' . trim($inner) . '</blockquote>';
+        },
+        $text
+    );
+
+    // --- 7. Horizontale Linie ---
+    $text = preg_replace('/^([-_*]){3,}\s*$/m', '<hr class="md-hr">', $text);
+
+    // --- 8. Tabellen ---
+    $text = preg_replace_callback(
+        '/(^\|.+\|\n)(^\|[-| :]+\|\n)((?:^\|.+\|\n?)*)/m',
+        function ($m) {
+            $parseRow = function ($line) {
+                $cells = explode('|', trim(trim($line), '|'));
+                return array_map('trim', $cells);
+            };
+            $headers = $parseRow($m[1]);
+            $rowLines = array_filter(explode("\n", trim($m[3])));
+            $html = '<table class="md-table"><thead><tr>';
+            foreach ($headers as $h) {
+                $html .= '<th>' . $h . '</th>';
             }
-            $result[] = '<li style="margin: 5px 0;">' . $matches[1] . '</li>';
+            $html .= '</tr></thead><tbody>';
+            foreach ($rowLines as $row) {
+                if (trim($row) === '') continue;
+                $cells = $parseRow($row);
+                $html .= '<tr>';
+                foreach ($cells as $c) {
+                    $html .= '<td>' . $c . '</td>';
+                }
+                $html .= '</tr>';
+            }
+            return $html . '</tbody></table>';
+        },
+        $text
+    );
+
+    // --- 9. Verschachtelte Listen (ul/ol/Checkboxen) ---
+    $text = _mdParseLists($text);
+
+    // --- 10. Inline-Formatierung ---
+    $text = preg_replace('/~~(.+?)~~/s',            '<del>$1</del>',                 $text);
+    $text = preg_replace('/\*\*\*(.+?)\*\*\*/s',   '<strong><em>$1</em></strong>',   $text);
+    $text = preg_replace('/\*\*(.+?)\*\*/s',        '<strong>$1</strong>',            $text);
+    $text = preg_replace('/__(.+?)__/s',             '<strong>$1</strong>',            $text);
+    $text = preg_replace('/\*(.+?)\*/s',             '<em>$1</em>',                   $text);
+    $text = preg_replace('/_(.+?)_/s',              '<em>$1</em>',                   $text);
+    $text = preg_replace('/\^(.+?)\^/',             '<sup>$1</sup>',                 $text);
+
+    // --- 11. Fußnoten-Referenzen ---
+    $fnCounter = 0;
+    $text = preg_replace_callback(
+        '/\[\^([^\]]+)\]/',
+        function ($m) use (&$fnCounter) {
+            $fnCounter++;
+            $label = htmlspecialchars($m[1], ENT_QUOTES, 'UTF-8');
+            return '<sup class="md-fn-ref"><a href="#fn-' . $label . '" id="fnref-' . $label . '">[' . $fnCounter . ']</a></sup>';
+        },
+        $text
+    );
+
+    // --- 12. Links und Bilder ---
+    // Bilder: ![alt](url) — nur http(s) + relative Pfade
+    $text = preg_replace_callback(
+        '/!\[([^\]]*)\]\(((?:https?:\/\/|\.\.?\/)[^\)]+)\)/',
+        function ($m) {
+            $alt = htmlspecialchars($m[1], ENT_QUOTES, 'UTF-8');
+            $url = htmlspecialchars($m[2], ENT_QUOTES, 'UTF-8');
+            return '<img src="' . $url . '" alt="' . $alt . '" class="md-img">';
+        },
+        $text
+    );
+    // Links: [text](url)
+    $text = preg_replace_callback(
+        '/\[([^\]]+)\]\(((?:https?:\/\/|\.\.?\/)[^\)]+)\)/',
+        function ($m) {
+            $label = $m[1];
+            $url   = htmlspecialchars($m[2], ENT_QUOTES, 'UTF-8');
+            return '<a href="' . $url . '" target="_blank" rel="noopener noreferrer" class="md-link">' . $label . '</a>';
+        },
+        $text
+    );
+
+    // --- 13. Paragraphen ---
+    $blocks = preg_split('/\n{2,}/', $text);
+    $out = [];
+    foreach ($blocks as $block) {
+        $block = trim($block);
+        if ($block === '') continue;
+        // Block-Elemente nicht nochmal wrappen
+        if (preg_match('/^<(h[1-6]|ul|ol|li|table|blockquote|pre|hr|div|footer)[\s>]/', $block)
+            || strpos($block, "\x00CB") !== false) {
+            $out[] = $block;
         } else {
-            if ($inList) {
-                $result[] = '</ul>';
-                $inList = false;
+            $out[] = '<p class="md-p">' . str_replace("\n", '<br>', $block) . '</p>';
+        }
+    }
+    $text = implode("\n", $out);
+
+    // --- 14. Fußnoten-Abschnitt am Ende ---
+    if (!empty($footnotes)) {
+        $fnHtml = '<footer class="md-footnotes"><ol>';
+        foreach ($footnotes as $id => $def) {
+            $label = htmlspecialchars($id, ENT_QUOTES, 'UTF-8');
+            $fnHtml .= '<li id="fn-' . $label . '">' . htmlspecialchars($def, ENT_QUOTES, 'UTF-8')
+                     . ' <a href="#fnref-' . $label . '">↩</a></li>';
+        }
+        $fnHtml .= '</ol></footer>';
+        $text .= "\n" . $fnHtml;
+    }
+
+    // --- 15. Platzhalter wiederherstellen ---
+    $text = preg_replace_callback('/\x00CB(\d+)\x00/', function ($m) use ($codeBlocks) {
+        return $codeBlocks[(int)$m[1]] ?? '';
+    }, $text);
+    $text = preg_replace_callback('/\x00IC(\d+)\x00/', function ($m) use ($inlineCodes) {
+        return $inlineCodes[(int)$m[1]] ?? '';
+    }, $text);
+
+    return $text;
+}
+
+/**
+ * Hilfsfunktion: Verschachtelte Markdown-Listen verarbeiten
+ * Unterstützt: ul (- / *), ol (1.), Checkboxen (- [ ] / - [x])
+ * Wird intern von parseRichText() aufgerufen.
+ */
+function _mdParseLists($text) {
+    $lines  = explode("\n", $text);
+    $result = [];
+    $stack  = []; // ['type' => 'ul'|'ol', 'indent' => int]
+
+    $closeUntil = function ($indent) use (&$stack, &$result) {
+        while (!empty($stack) && end($stack)['indent'] >= $indent) {
+            $top = array_pop($stack);
+            $result[] = '</' . $top['type'] . '>';
+        }
+    };
+
+    foreach ($lines as $line) {
+        // Erkennt: "  - item", "  * item", "  1. item",
+        //          "  - [ ] item", "  - [x] item"
+        if (preg_match('/^( *)(?:(\d+)\.\s+|[-*]\s+(?:\[([ xX])\]\s+)?)(.+)$/', $line, $m)) {
+            $rawIndent = strlen($m[1]);
+            $isOrdered = ($m[2] !== '');
+            $listType  = $isOrdered ? 'ol' : 'ul';
+            $checked   = isset($m[3]) && $m[3] !== '' ? strtolower($m[3]) : null;
+            $itemText  = $m[4];
+
+            // Gleiche Tiefe + anderer Listentyp → aktuelle schließen
+            if (!empty($stack) && end($stack)['indent'] === $rawIndent
+                && end($stack)['type'] !== $listType) {
+                $top = array_pop($stack);
+                $result[] = '</' . $top['type'] . '>';
             }
+
+            // Neue/tiefere Liste öffnen
+            if (empty($stack) || end($stack)['indent'] < $rawIndent) {
+                $result[] = '<' . $listType . ' class="md-' . $listType . '">';
+                $stack[]  = ['type' => $listType, 'indent' => $rawIndent];
+            }
+
+            // Flachere Einrückung → Listen schließen
+            if (!empty($stack) && end($stack)['indent'] > $rawIndent) {
+                $closeUntil($rawIndent);
+                if (empty($stack) || end($stack)['indent'] !== $rawIndent) {
+                    $result[] = '<' . $listType . ' class="md-' . $listType . '">';
+                    $stack[]  = ['type' => $listType, 'indent' => $rawIndent];
+                }
+            }
+
+            // Checkbox-Item
+            if ($checked !== null) {
+                $chkAttr = ($checked === 'x') ? ' checked disabled' : ' disabled';
+                $itemHtml = '<input type="checkbox"' . $chkAttr . '> ' . $itemText;
+            } else {
+                $itemHtml = $itemText;
+            }
+            $result[] = '<li class="md-li">' . $itemHtml . '</li>';
+
+        } else {
+            // Kein Listen-Element → alle offenen Listen schließen
+            $closeUntil(-1);
             $result[] = $line;
         }
     }
-    
-    // Liste schließen falls noch offen
-    if ($inList) {
-        $result[] = '</ul>';
-    }
-    
-    $text = implode("\n", $result);
-    
-    // Schritt 5: Links [Text](URL)
-    $text = preg_replace('/\[([^\]]+)\]\(([^\)]+)\)/', '<a href="$2" target="_blank" style="color: var(--accent-gold); text-decoration: underline;">$1</a>', $text);
-    
-    // Schritt 6: Zeilenumbrüche in <br> konvertieren
-    $text = nl2br($text);
-    
-    return $text;
+    $closeUntil(-1);
+
+    return implode("\n", $result);
 }
 
 /**

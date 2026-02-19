@@ -9,7 +9,21 @@
       "Bash(npm --version:*)",
       "Bash(npm run build:*)",
       "Bash(sqlite3:*)",
-      "Bash(dir \"X:\\\\darchive-staging\\\\uploads\"\")"
+      "Bash(dir \"X:\\\\darchive-staging\\\\uploads\"\")",
+      "Bash(php:*)",
+      "Bash(php -l:*)",
+      "Bash(git -C \"X:/darchive-staging\" status --short)",
+      "Bash(git -C \"/x/darchive-staging\" status --short)",
+      "Bash(git -C \"X:/darchive-staging\" log --oneline -8)",
+      "Bash(git -C \"X:/darchive-staging\" diff --stat HEAD)",
+      "Bash(git -C \"X:/darchive-staging\" branch -a)",
+      "Bash(python3:*)",
+      "Bash(powershell -Command \"\n$content = Get-Content ''X:/darchive-staging/functions.php'' -Raw -Encoding UTF8\n$search = ''function parseRichText''\n$idx = $content.IndexOf\\($search\\)\nWrite-Host \"\"Found at: $idx\"\"\nWrite-Host $content.Substring\\($idx, 60\\)\n\")",
+      "Bash(powershell -Command:*)",
+      "Bash(powershell -File - << 'PWSH'\n$content = Get-Content 'X:/darchive-staging/functions.php' -Raw -Encoding UTF8\n$startIdx = $content.IndexOf\\('// RICH TEXT PARSER \\(Markdown-Style\\)'\\)\n$endIdx = $content.IndexOf\\('function parseRichTextSimple'\\)\n$oldBlock = $content.Substring\\($startIdx, $endIdx - $startIdx\\)\nWrite-Host \"Block length: $\\($oldBlock.Length\\)\"\nWrite-Host \"Last 80 chars: $\\($oldBlock.Substring\\($oldBlock.Length - 80\\)\\)\"\nPWSH)",
+      "Bash(powershell -File -:*)",
+      "Bash(git -C \"X:/darchive-staging\" diff --stat)",
+      "Bash(git -C \"X:/darchive-staging\" diff --name-only)"
     ]
   }
 }
