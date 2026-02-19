@@ -26,15 +26,28 @@ function openLightbox(url, type = 'image') {
     const lightbox = document.getElementById('globalLightbox') || createGlobalLightbox();
     const img = lightbox.querySelector('.lightbox-image');
     const pdf = lightbox.querySelector('.lightbox-pdf');
+    const text = lightbox.querySelector('.lightbox-text');
     
     lightbox.style.display = 'block';
+    img.style.display = 'none';
+    pdf.style.display = 'none';
+    text.style.display = 'none';
     
     if (type === 'pdf') {
-        img.style.display = 'none';
         pdf.style.display = 'block';
         pdf.src = url;
+    } else if (type === 'text') {
+        text.style.display = 'block';
+        text.innerHTML = '<div class="library-viewer__loading">Lade Inhalt…</div>';
+        fetch('api/library_viewer.php?file=' + encodeURIComponent(url), { credentials: 'same-origin' })
+            .then(function(resp) { return resp.text(); })
+            .then(function(html) {
+                text.innerHTML = html;
+            })
+            .catch(function() {
+                text.innerHTML = '<p>Viewer konnte nicht geladen werden.</p>';
+            });
     } else {
-        pdf.style.display = 'none';
         img.style.display = 'block';
         img.src = url;
     }
@@ -45,7 +58,9 @@ function closeLightbox() {
     if (lightbox) {
         lightbox.style.display = 'none';
         const pdf = lightbox.querySelector('.lightbox-pdf');
+        const text = lightbox.querySelector('.lightbox-text');
         if (pdf) pdf.src = '';
+        if (text) text.innerHTML = '';
     }
 }
 
@@ -59,6 +74,7 @@ function createGlobalLightbox() {
         <span class="close-lightbox" onclick="closeLightbox()">&times;</span>
         <img class="lightbox-content lightbox-image" alt="Vorschau" style="display:none;">
         <iframe class="lightbox-content lightbox-pdf" style="display:none; width:90vw; height:90vh; border:none;"></iframe>
+        <div class="lightbox-content lightbox-text" style="display:none; width:min(1000px,92vw); max-height:90vh; overflow:auto;"></div>
     `;
     document.body.appendChild(lb);
     return lb;
