@@ -444,21 +444,45 @@ function prettyFilename($filename) {
                             </div>
                         </div>
 
-                        <?php /* ── AKTIONEN (oben-rechts, hover) ── Qualität */ ?>
-                        <?php if (hasPermission('bibliothek', 'write')): ?>
                         <div class="rp-card__actions">
-                            <form method="post" style="margin:0;display:inline-flex;">
-                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
-                                <input type="hidden" name="quality_file" value="<?= htmlspecialchars($file['name'], ENT_QUOTES, 'UTF-8') ?>">
-                                <select name="set_quality" onchange="this.form.submit()" class="rp-card__quality-select" title="Qualität ändern">
-                                    <option value="" disabled>★ Qualität</option>
-                                    <option value="auto">↻ Auto</option>
-                                    <option value="common"    <?= $quality === 'common'    ? 'selected' : '' ?>>• Gewöhnlich</option>
-                                    <option value="uncommon"  <?= $quality === 'uncommon'  ? 'selected' : '' ?>>• Ungewöhnlich</option>
-                                    <option value="rare"      <?= $quality === 'rare'      ? 'selected' : '' ?>>• Selten</option>
-                                    <option value="epic"      <?= $quality === 'epic'      ? 'selected' : '' ?>>• Episch</option>
-                                    <option value="legendary" <?= $quality === 'legendary' ? 'selected' : '' ?>>• Legendär</option>
-                                </select>
+                            <?php if (hasPermission('bibliothek', 'write')): ?>
+                                <form method="post" style="margin:0; display:inline-flex;" class="rp-card__action-form">
+                                    <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
+                                    <input type="hidden" name="quality_file" value="<?php echo htmlspecialchars($file['name']); ?>">
+                                    <select name="set_quality" onchange="this.form.submit()" class="rp-card__quality-select rp-card__action-control" title="Qualitaet aendern">
+                                        <option value="" disabled>★ Qualität</option>
+                                        <option value="auto">↻ Automatisch</option>
+                                        <option value="common" <?php echo $quality === 'common' ? 'selected' : ''; ?>>• Gewöhnlich</option>
+                                        <option value="uncommon" <?php echo $quality === 'uncommon' ? 'selected' : ''; ?>>• Ungewöhnlich</option>
+                                        <option value="rare" <?php echo $quality === 'rare' ? 'selected' : ''; ?>>• Selten</option>
+                                        <option value="epic" <?php echo $quality === 'epic' ? 'selected' : ''; ?>>• Episch</option>
+                                        <option value="legendary" <?php echo $quality === 'legendary' ? 'selected' : ''; ?>>• Legendär</option>
+                                    </select>
+                                </form>
+                            <?php endif; ?>
+
+                            <?php if (!$file['is_image']): ?>
+                                <form method="post" style="margin:0; display:inline-flex;" class="rp-card__borrow-form rp-card__action-form" onsubmit="return prepareBorrowerName(this);">
+                                    <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
+                                    <input type="hidden" name="mark_read" value="<?php echo htmlspecialchars($file['name']); ?>">
+                                    <input type="hidden" name="reader_name" value="">
+                                    <button type="submit" class="rp-btn rp-btn--small rp-card__action-btn rp-card__action-btn--borrow" title="Ausleihe eintragen">
+                                        <span class="rp-card__action-icon">📖</span>
+                                        <span>Ausleihen</span>
+                                    </button>
+                                </form>
+                            <?php endif; ?>
+                        </div>
+
+                        <?php if (hasPermission('bibliothek', 'write')): ?>
+                            <form method="post" style="margin: 0;" class="rp-card__action-form" onsubmit="return confirm('Endgültig vernichten?');">
+                                <input type="hidden" name="csrf_token" value="<?php echo $csrfToken; ?>">
+                                <input type="hidden" name="delete_file" value="<?php echo htmlspecialchars($file['name']); ?>">
+                                <input type="hidden" name="delete_cat" value="<?php echo $file['category'] ?? $view; ?>">
+                                <button type="submit" class="rp-btn rp-btn--delete rp-btn--delete--artifact rp-card__action-btn rp-card__action-btn--delete" title="Verbrennen">
+                                    <span class="rp-card__action-icon">🔥</span>
+                                    <span>Löschen</span>
+                                </button>
                             </form>
                         </div>
                         <?php endif; ?>
