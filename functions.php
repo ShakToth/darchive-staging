@@ -38,13 +38,112 @@ function getUserDB() {
             $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             $db->exec('PRAGMA foreign_keys = ON');
 
-            // Auto-Migration: Rollen-/Berechtigungstabellen erstellen falls nötig
+            // Auto-Migrationen
             migrateRolesSystem($db);
+            migrateStartseiteInhalte($db);
         } catch (PDOException $e) {
             die("Datenbankfehler: " . $e->getMessage());
         }
     }
     return $db;
+}
+
+/**
+ * Auto-Migration für bearbeitbare Inhalte der Startseite
+ */
+function migrateStartseiteInhalte($db) {
+    $db->exec("CREATE TABLE IF NOT EXISTS startseite_inhalte (
+        slug TEXT PRIMARY KEY,
+        titel TEXT NOT NULL,
+        inhalt TEXT NOT NULL DEFAULT '',
+        aktualisiert_von TEXT DEFAULT '',
+        aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+
+    $defaultInhalte = [
+        'geschichte' => [
+            'titel' => 'Geschichte',
+            'inhalt' => "Dämmerhafen ist ein Ort voller alter Schwüre, neuer Bündnisse und Geschichten, die in jeder Taverne anders erzählt werden.\n\nSchreibe hier eure Chronik, wichtige Ereignisse und die Ursprünge eurer Gemeinschaft hinein."
+        ],
+        'regeln' => [
+            'titel' => 'Regeln',
+            'inhalt' => "Hier stehen eure alltäglichen Verhaltensregeln für ein harmonisches Miteinander.\n\nNutze Listen, Absätze oder Hervorhebungen, damit alles schnell erfassbar bleibt."
+        ],
+        'ansprechpartner' => [
+            'titel' => 'Ansprechpartner',
+            'inhalt' => "Trage hier ein, wer für welche Themen zuständig ist (RP-Leitung, Miliz, Rekrutierung, Technik usw.).\n\nTipp: Mit **Namen**, *Rolle* und Kontaktweg strukturieren."
+        ],
+        'regelwerk' => [
+            'titel' => 'Regelwerk',
+            'inhalt' => "Nutze diesen Abschnitt für längere und detaillierte Passagen eures vollständigen Regelwerks.\n\nDu kannst hier große Textmengen pflegen und mit Überschriften in **fett** arbeiten."
+        ],
+    ];
+
+    $stmt = $db->prepare("INSERT OR IGNORE INTO startseite_inhalte (slug, titel, inhalt) VALUES (:slug, :titel, :inhalt)");
+    foreach ($defaultInhalte as $slug => $eintrag) {
+        $stmt->execute([
+            ':slug' => $slug,
+            ':titel' => $eintrag['titel'],
+            ':inhalt' => $eintrag['inhalt']
+        ]);
+    }
+}
+
+/**
+ * Liefert alle Startseiteninhalte in fester Reihenfolge
+ */
+function getStartseiteInhalte() {
+    $db = getUserDB();
+    $reihenfolge = ['geschichte', 'regeln', 'ansprechpartner', 'regelwerk'];
+    $inhalte = [];
+
+    try {
+        $stmt = $db->query("SELECT slug, titel, inhalt, aktualisiert_von, aktualisiert_am FROM startseite_inhalte");
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($rows as $row) {
+            $inhalte[$row['slug']] = $row;
+        }
+    } catch (PDOException $e) {
+        return [];
+    }
+
+    $sortiert = [];
+    foreach ($reihenfolge as $slug) {
+        if (isset($inhalte[$slug])) {
+            $sortiert[$slug] = $inhalte[$slug];
+        }
+    }
+
+    return $sortiert;
+}
+
+/**
+ * Speichert den Inhalt einer Startseiten-Kategorie
+ */
+function updateStartseiteInhalt($slug, $inhalt, $autor) {
+    $gueltigeSlugs = ['geschichte', 'regeln', 'ansprechpartner', 'regelwerk'];
+    if (!in_array($slug, $gueltigeSlugs, true)) {
+        return false;
+    }
+
+    $db = getUserDB();
+
+    try {
+        $stmt = $db->prepare("UPDATE startseite_inhalte
+            SET inhalt = :inhalt,
+                aktualisiert_von = :autor,
+                aktualisiert_am = CURRENT_TIMESTAMP
+            WHERE slug = :slug");
+
+        return $stmt->execute([
+            ':inhalt' => trim($inhalt),
+            ':autor' => $autor,
+            ':slug' => $slug
+        ]);
+    } catch (PDOException $e) {
+        return false;
+    }
 }
 
 /**
