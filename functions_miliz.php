@@ -55,6 +55,22 @@ function initMilizDB() {
             // Spalte existiert bereits
         }
 
+        // Migration: Wanted-Belohnung + Verbrechens-Kurztext
+        foreach ([
+            "ALTER TABLE miliz_entries ADD COLUMN bounty_gold INTEGER DEFAULT 0",
+            "ALTER TABLE miliz_entries ADD COLUMN bounty_silver INTEGER DEFAULT 0",
+            "ALTER TABLE miliz_entries ADD COLUMN bounty_copper INTEGER DEFAULT 0",
+            "ALTER TABLE miliz_entries ADD COLUMN crime_summary TEXT DEFAULT NULL",
+            "ALTER TABLE miliz_entries ADD COLUMN rank_text TEXT DEFAULT NULL",
+            "ALTER TABLE miliz_entries ADD COLUMN format_type TEXT DEFAULT 'markdown'"
+        ] as $sql) {
+            try {
+                $db->exec($sql);
+            } catch (PDOException $e) {
+                // Spalte existiert bereits
+            }
+        }
+
         // Briefkasten-Tabelle (anonyme Hinweise)
         $db->exec("CREATE TABLE IF NOT EXISTS miliz_briefkasten (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -75,9 +91,15 @@ function initMilizDB() {
             bestand INTEGER DEFAULT 1,
             zustand TEXT DEFAULT 'gut',
             ausgegeben_an TEXT DEFAULT NULL,
+            ausgegeben_menge INTEGER DEFAULT 0,
             erstellt_am INTEGER NOT NULL,
             aktualisiert_am INTEGER NOT NULL
         )");
+        try {
+            $db->exec("ALTER TABLE miliz_waffenkammer ADD COLUMN ausgegeben_menge INTEGER DEFAULT 0");
+        } catch (PDOException $e) {
+            // Spalte existiert bereits
+        }
 
         return $db;
     } catch (PDOException $e) {
@@ -87,7 +109,7 @@ function initMilizDB() {
 }
 
 // --- EINTRAG ERSTELLEN ---
-function createMilizEntry($category, $title, $content, $author = 'Die Miliz', $filePath = null, $priority = 0) {
+function createMilizEntry($category, $title, $content, $author = 'Die Miliz', $filePath = null, $priority = 0, $wantedData = []) {
     if (!hasPermission('miliz', 'write')) {
         return ['type' => 'error', 'text' => '🚫 Zugriff verweigert.'];
     }
@@ -99,22 +121,66 @@ function createMilizEntry($category, $title, $content, $author = 'Die Miliz', $f
     
     try {
         $timestamp = time();
-        $stmt = $db->prepare("
-            INSERT INTO miliz_entries (category, title, content, author, file_path, created_at, updated_at, priority)
-            VALUES (:category, :title, :content, :author, :file_path, :created_at, :updated_at, :priority)
-        ");
-        
-        $stmt->execute([
-            ':category' => $category,
-            ':title' => $title,
-            ':content' => $content,
-            ':author' => $author,
-            ':file_path' => $filePath,
-            ':created_at' => $timestamp,
-            ':updated_at' => $timestamp,
-            ':priority' => $priority
-        ]);
-        
+
+        if ($category === 'gesucht') {
+            $stmt = $db->prepare("
+                INSERT INTO miliz_entries (category, title, content, author, file_path, created_at, updated_at, priority, status, bounty_gold, bounty_silver, bounty_copper, crime_summary, format_type)
+                VALUES (:category, :title, :content, :author, :file_path, :created_at, :updated_at, :priority, :status, :bounty_gold, :bounty_silver, :bounty_copper, :crime_summary, :format_type)
+            ");
+            $stmt->execute([
+                ':category' => $category,
+                ':title' => $title,
+                ':content' => $content,
+                ':author' => $author,
+                ':file_path' => $filePath,
+                ':created_at' => $timestamp,
+                ':updated_at' => $timestamp,
+                ':priority' => $priority,
+                ':status' => (array_key_exists(($wantedData['status'] ?? 'aktiv'), MILIZ_STATUS_VALUES) ? ($wantedData['status'] ?? 'aktiv') : 'aktiv'),
+                ':bounty_gold' => max(0, intval($wantedData['gold'] ?? 0)),
+                ':bounty_silver' => max(0, intval($wantedData['silver'] ?? 0)),
+                ':bounty_copper' => max(0, intval($wantedData['copper'] ?? 0)),
+                ':crime_summary' => trim((string)($wantedData['crime_summary'] ?? '')) ?: null,
+                ':format_type' => in_array(($wantedData['format_type'] ?? 'markdown'), ['markdown','html','bbcode']) ? ($wantedData['format_type'] ?? 'markdown') : 'markdown'
+            ]);
+        } else {
+            $rankText = trim((string)($wantedData['rank_text'] ?? ''));
+            if ($category === 'steckbriefe') {
+                $stmt = $db->prepare("
+                    INSERT INTO miliz_entries (category, title, content, author, file_path, created_at, updated_at, priority, rank_text, format_type)
+                    VALUES (:category, :title, :content, :author, :file_path, :created_at, :updated_at, :priority, :rank_text, :format_type)
+                ");
+                $stmt->execute([
+                    ':category' => $category,
+                    ':title' => $title,
+                    ':content' => $content,
+                    ':author' => $author,
+                    ':file_path' => $filePath,
+                    ':created_at' => $timestamp,
+                    ':updated_at' => $timestamp,
+                    ':priority' => $priority,
+                    ':rank_text' => $rankText !== '' ? $rankText : null,
+                    ':format_type' => in_array(($wantedData['format_type'] ?? 'markdown'), ['markdown','html','bbcode']) ? ($wantedData['format_type'] ?? 'markdown') : 'markdown'
+                ]);
+            } else {
+                $stmt = $db->prepare("
+                    INSERT INTO miliz_entries (category, title, content, author, file_path, created_at, updated_at, priority, format_type)
+                    VALUES (:category, :title, :content, :author, :file_path, :created_at, :updated_at, :priority, :format_type)
+                ");
+                $stmt->execute([
+                    ':category' => $category,
+                    ':title' => $title,
+                    ':content' => $content,
+                    ':author' => $author,
+                    ':file_path' => $filePath,
+                    ':created_at' => $timestamp,
+                    ':updated_at' => $timestamp,
+                    ':priority' => $priority,
+                    ':format_type' => in_array(($wantedData['format_type'] ?? 'markdown'), ['markdown','html','bbcode']) ? ($wantedData['format_type'] ?? 'markdown') : 'markdown'
+                ]);
+            }
+        }
+
         return ['type' => 'success', 'text' => '✅ Eintrag erfolgreich erstellt!'];
     } catch (PDOException $e) {
         return ['type' => 'error', 'text' => '❌ Fehler beim Speichern.'];
@@ -183,6 +249,41 @@ function updateMilizEntryStatus($id, $status) {
         return ['type' => 'success', 'text' => "Status auf '{$label}' gesetzt."];
     } catch (PDOException $e) {
         return ['type' => 'error', 'text' => '❌ Fehler beim Aktualisieren.'];
+    }
+}
+
+
+
+// --- WANTED-BELOHNUNG AKTUALISIEREN ---
+function updateMilizWantedBounty($id, $gold, $silver, $copper) {
+    if (!hasPermission('miliz', 'write')) {
+        return ['type' => 'error', 'text' => '🚫 Zugriff verweigert.'];
+    }
+
+    $db = initMilizDB();
+    if (!$db) return ['type' => 'error', 'text' => '❌ Datenbank-Fehler.'];
+
+    $gold = max(0, intval($gold));
+    $silver = max(0, min(99, intval($silver)));
+    $copper = max(0, min(99, intval($copper)));
+
+    try {
+        $stmt = $db->prepare("UPDATE miliz_entries
+            SET bounty_gold = :gold,
+                bounty_silver = :silver,
+                bounty_copper = :copper,
+                updated_at = :updated_at
+            WHERE id = :id AND category = 'gesucht'");
+        $stmt->execute([
+            ':gold' => $gold,
+            ':silver' => $silver,
+            ':copper' => $copper,
+            ':updated_at' => time(),
+            ':id' => $id
+        ]);
+        return ['type' => 'success', 'text' => 'Belohnung aktualisiert.'];
+    } catch (PDOException $e) {
+        return ['type' => 'error', 'text' => '❌ Fehler beim Aktualisieren der Belohnung.'];
     }
 }
 
@@ -423,8 +524,7 @@ function getBriefkastenUnreadCount() {
 define('WAFFENKAMMER_ZUSTAND', [
     'gut'        => ['label' => 'Gut',        'class' => 'inventar-zustand--gut'],
     'beschaedigt'=> ['label' => 'Beschädigt', 'class' => 'inventar-zustand--beschaedigt'],
-    'defekt'     => ['label' => 'Defekt',     'class' => 'inventar-zustand--defekt'],
-    'ausgegeben' => ['label' => 'Ausgegeben', 'class' => 'inventar-zustand--ausgegeben']
+    'defekt'     => ['label' => 'Defekt',     'class' => 'inventar-zustand--defekt']
 ]);
 
 /**
@@ -444,12 +544,13 @@ function createWaffenkammerItem($name, $beschreibung, $bestand, $zustand) {
 
     try {
         $now = time();
-        $stmt = $db->prepare("INSERT INTO miliz_waffenkammer (name, beschreibung, bestand, zustand, erstellt_am, aktualisiert_am) VALUES (:name, :beschreibung, :bestand, :zustand, :erstellt_am, :aktualisiert_am)");
+        $stmt = $db->prepare("INSERT INTO miliz_waffenkammer (name, beschreibung, bestand, zustand, ausgegeben_menge, erstellt_am, aktualisiert_am) VALUES (:name, :beschreibung, :bestand, :zustand, :ausgegeben_menge, :erstellt_am, :aktualisiert_am)");
         $stmt->execute([
             ':name'           => trim($name),
             ':beschreibung'   => trim($beschreibung),
             ':bestand'        => max(0, intval($bestand)),
             ':zustand'        => $zustand,
+            ':ausgegeben_menge'=> 0,
             ':erstellt_am'    => $now,
             ':aktualisiert_am'=> $now
         ]);
@@ -489,10 +590,10 @@ function updateWaffenkammerItem($id, $data) {
         $sets = ['aktualisiert_am = :aktualisiert_am'];
         $params = [':id' => $id, ':aktualisiert_am' => time()];
 
-        foreach (['name', 'beschreibung', 'bestand', 'zustand', 'ausgegeben_an'] as $field) {
+        foreach (['name', 'beschreibung', 'bestand', 'zustand', 'ausgegeben_an', 'ausgegeben_menge'] as $field) {
             if (array_key_exists($field, $data)) {
                 $sets[] = "$field = :$field";
-                $params[":$field"] = $data[$field];
+                $params[":$field"] = ($field === 'ausgegeben_menge') ? max(0, intval($data[$field])) : $data[$field];
             }
         }
 
