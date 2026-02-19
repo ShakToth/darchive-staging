@@ -1,5 +1,24 @@
 <?php
-$view = isset($_GET['cat']) ? $_GET['cat'] : 'room';
+$rawView = isset($_GET['cat']) ? trim((string)$_GET['cat']) : 'room';
+$viewAliases = [
+    'room' => 'room',
+    'bibliothek' => 'room',
+    'images' => 'images',
+    'image' => 'images',
+    'bilder' => 'images',
+    'zeichnungen' => 'images',
+    'books' => 'books',
+    'book' => 'books',
+    'buecher' => 'books',
+    'bücher' => 'books',
+    'archive' => 'archive',
+    'archiv' => 'archive',
+    'index' => 'index',
+    'alle' => 'index',
+    'forbidden' => 'forbidden',
+    'verboten' => 'forbidden'
+];
+$view = $viewAliases[strtolower($rawView)] ?? 'index';
 $pageTitle = 'Die Bibliothek';
 $bodyClass = ($view === 'room') ? 'rp-view-room' : '';
 

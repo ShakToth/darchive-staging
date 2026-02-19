@@ -3137,6 +3137,16 @@ button:hover, .nav-btn:hover {
         min-width: 120px;
     }
 }
+
+
+.rp-view-immersive .rp-card--transparent {
+    background: rgba(248, 238, 211, 0.90);
+}
+
+.rp-view-immersive .rp-card--entry.rp-card--transparent {
+    background: rgba(248, 238, 211, 0.90) !important;
+}
+
 /* =================================================================
    32. BIBLIOTHEK LEGACY-COMPAT (darchive-stagingLocal import)
    ================================================================= */
